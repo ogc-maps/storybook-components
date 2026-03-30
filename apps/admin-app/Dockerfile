@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 RUN corepack enable
 
 WORKDIR /app
@@ -26,7 +26,7 @@ RUN pnpm --filter admin-app build
 RUN pnpm --filter admin-app build:server
 
 # Stage 2: Runtime
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 RUN apk update && apk upgrade --no-cache
 RUN corepack enable
 
