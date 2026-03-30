@@ -104,7 +104,7 @@
     "@storybook/addon-links": "^8.5.0",
     "@storybook/blocks": "^8.5.0",
     "@storybook/react": "^8.5.0",
-    "@storybook/react-vite": "^8.5.0",
+    "@storybook/react-vite": "^10.3.3",
     "@storybook/test": "^8.5.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^18.3.18",
