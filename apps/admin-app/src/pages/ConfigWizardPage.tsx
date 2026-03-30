@@ -184,7 +184,7 @@ export function ConfigWizardPage() {
 
     const validation = safeValidateMapConfig(assembledConfig);
     if (!validation.success) {
-      setValidationErrors(validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`));
+      setValidationErrors(validation.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`));
       setSaving(false);
       return;
     }

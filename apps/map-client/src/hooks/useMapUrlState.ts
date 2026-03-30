@@ -28,7 +28,7 @@ const searchFilterValueSchema = z.union([
 const stateParsers = {
   layers: parseAsArrayOf(parseAsString),
   basemap: parseAsString,
-  filters: parseAsJson(z.record(z.record(searchFilterValueSchema))),
+  filters: parseAsJson(z.record(z.string(), z.record(z.string(), searchFilterValueSchema))),
 };
 
 export function useMapUrlState() {

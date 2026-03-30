@@ -45,7 +45,7 @@ function App() {
         const result = safeValidateMapConfig(raw);
         if (!result.success) {
           setValidationError(
-            `Config validation failed: ${result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+            `Config validation failed: ${result.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
           );
           return;
         }
@@ -64,7 +64,7 @@ function App() {
       const result = safeValidateMapConfig(raw);
       if (!result.success) {
         setValidationError(
-          `Config validation failed: ${result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+          `Config validation failed: ${result.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
         );
         return;
       }

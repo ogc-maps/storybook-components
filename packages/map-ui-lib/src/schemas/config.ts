@@ -286,7 +286,7 @@ export const PropertyDisplayConfigSchema = z.record(z.string(), PropertyDisplayS
 
 export const FilterConfigSchema = z.object({
   properties: z
-    .record(z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]))
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]))
     .optional(),
   bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
   datetime: z.string().optional(),
@@ -513,10 +513,10 @@ export const ImageryLayerConfigSchema = z.object({
 }).superRefine((data, ctx) => {
   if (!data.tileUrlTemplate) {
     if (!data.sourceId) {
-      ctx.addIssue({ code: z.ZodIssueCode.too_small, minimum: 1, type: 'string', inclusive: true, path: ['sourceId'], message: 'Source is required when not using a custom tile URL' });
+      ctx.addIssue({ code: 'custom', path: ['sourceId'], message: 'Source is required when not using a custom tile URL' });
     }
     if (!data.collection) {
-      ctx.addIssue({ code: z.ZodIssueCode.too_small, minimum: 1, type: 'string', inclusive: true, path: ['collection'], message: 'Collection is required when not using a custom tile URL' });
+      ctx.addIssue({ code: 'custom', path: ['collection'], message: 'Collection is required when not using a custom tile URL' });
     }
   }
 });
@@ -529,7 +529,20 @@ export const MapConfigSchema = z.object({
   imageryLayers: z.array(ImageryLayerConfigSchema).optional(),
   basemaps: z.array(BasemapConfigSchema).min(1),
   sprites: z.array(SpriteSourceSchema).optional(),
-  ui: UIConfigSchema.default({}),
+  ui: UIConfigSchema.default({
+    showLayerPanel: true,
+    showLegend: true,
+    showBasemapSwitcher: true,
+    showSearchPanel: false,
+    showCoordinateDisplay: true,
+    showFeatureDetail: true,
+    showFeatureTooltip: true,
+    showExportButton: true,
+    showLegendOpacity: false,
+    showMeasureTool: false,
+    showSelectionTool: false,
+    showImageryPanel: false,
+  }),
   initialView: ViewConfigSchema,
   branding: BrandingConfigSchema.optional(),
 });

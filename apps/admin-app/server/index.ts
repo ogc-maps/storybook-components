@@ -333,7 +333,7 @@ app.post('/api/configs', requireAuth, async (req, res) => {
   if (config) {
     const validation = safeValidateMapConfig(config);
     if (!validation.success) {
-      res.status(400).json({ error: 'Invalid config', details: validation.error.errors });
+      res.status(400).json({ error: 'Invalid config', details: validation.error.issues });
       return;
     }
   }
@@ -366,7 +366,7 @@ app.put('/api/configs/:id', requireAuth, async (req, res) => {
   if (config) {
     const validation = safeValidateMapConfig(config);
     if (!validation.success) {
-      res.status(400).json({ error: 'Invalid config', details: validation.error.errors });
+      res.status(400).json({ error: 'Invalid config', details: validation.error.issues });
       return;
     }
   }
