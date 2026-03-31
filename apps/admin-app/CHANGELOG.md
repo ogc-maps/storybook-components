@@ -1,5 +1,16 @@
 # admin-app
 
+## 0.4.0
+
+### Minor Changes
+
+- 68987c0: custom queries
+
+### Patch Changes
+
+- Updated dependencies [68987c0]
+  - @ogc-maps/storybook-components@0.15.0
+
 ## 0.3.0
 
 ### Minor Changes
