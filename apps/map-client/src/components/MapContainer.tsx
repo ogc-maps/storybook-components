@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Map, Source, Layer, AttributionControl, type MapRef } from 'react-map-gl/maplibre';
 import { useOgcFeatures } from '@ogc-maps/storybook-components/hooks';
 import { getCql2FilteredVectorTileUrl, resolveStyleWithSprites, getVectorTileSourceKey, buildGeometryFilter, getImageryTileUrl } from '@ogc-maps/storybook-components/utils';
+import { buildWmtsTileUrlTemplate } from '@ogc-maps/storybook-components/hooks';
 import type { CQL2Expression, SourceAuth } from '@ogc-maps/storybook-components/utils';
 import type { LayerConfig, ImageryLayerConfig } from '@ogc-maps/storybook-components/types';
 import type { MeasureMode, SelectionMode } from '@ogc-maps/storybook-components';
@@ -97,13 +98,15 @@ function RasterImageryLayer({
   sourceUrl,
   tileMatrixSetId,
   auth,
+  sourceTileUrlTemplate,
 }: {
   layer: ImageryLayerConfig;
   sourceUrl: string;
   tileMatrixSetId?: string;
   auth?: SourceAuth;
+  sourceTileUrlTemplate?: string;
 }) {
-  const tileUrl = getImageryTileUrl(sourceUrl, layer.collection, tileMatrixSetId, layer.tileUrlTemplate, auth);
+  const tileUrl = getImageryTileUrl(sourceUrl, layer.collection, tileMatrixSetId, layer.tileUrlTemplate ?? sourceTileUrlTemplate, auth);
   return (
     <Source
       id={`imagery-${layer.id}`}
@@ -249,13 +252,28 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
 
   // Build source URL lookup map with tileMatrixSetId and auth
   const sourceUrlMap = useMemo(() => {
-    const urlMap: Record<string, { url: string; tileMatrixSetId?: string; auth?: SourceAuth }> = {};
+    const urlMap: Record<string, { url: string; tileMatrixSetId?: string; auth?: SourceAuth; tileUrlTemplate?: string }> = {};
     sources.forEach((source) => {
-      urlMap[source.id] = {
-        url: source.url,
-        tileMatrixSetId: source.tileMatrixSetId,
-        auth: source.auth,
-      };
+      if ('sourceType' in source && source.sourceType === 'wmts') {
+        urlMap[source.id] = {
+          url: source.capabilitiesUrl,
+          tileMatrixSetId: undefined,
+          auth: source.auth,
+          tileUrlTemplate: source.tileUrlTemplate ?? buildWmtsTileUrlTemplate(
+            source.capabilitiesUrl,
+            source.layer,
+            source.style,
+            source.tileMatrixSet,
+            source.format,
+          ),
+        };
+      } else {
+        urlMap[source.id] = {
+          url: source.url,
+          tileMatrixSetId: source.tileMatrixSetId,
+          auth: source.auth,
+        };
+      }
     });
     return urlMap;
   }, [sources]);
@@ -264,7 +282,15 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
   const transformRequest = useMemo(() => {
     const headerSources = sources
       .filter(s => s.auth?.type === 'header')
-      .map(s => ({ prefix: s.url.replace(/\/$/, ''), auth: s.auth! }));
+      .map(s => {
+        const baseUrl = 'sourceType' in s && s.sourceType === 'wmts' ? s.capabilitiesUrl : s.url;
+        try {
+          const prefix = new URL(baseUrl).origin;
+          return { prefix, auth: s.auth! };
+        } catch {
+          return { prefix: baseUrl.replace(/\/$/, ''), auth: s.auth! };
+        }
+      });
     if (headerSources.length === 0) return undefined;
     return (url: string) => {
       const match = headerSources.find(s => url.startsWith(s.prefix));
@@ -495,6 +521,7 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
             sourceUrl={sourceInfo?.url ?? ''}
             tileMatrixSetId={sourceInfo?.tileMatrixSetId}
             auth={sourceInfo?.auth}
+            sourceTileUrlTemplate={sourceInfo?.tileUrlTemplate}
           />
         );
       })}

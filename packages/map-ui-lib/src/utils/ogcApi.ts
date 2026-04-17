@@ -480,9 +480,10 @@ export async function fetchGenericTileJson(
  * (multiple sources + layers). Callers should route style URLs to basemap handling
  * instead of the imagery inspector.
  */
-export function detectTileSourceType(url: string): 'tilejson' | 'xyz' | 'style' | 'ogc-api' {
+export function detectTileSourceType(url: string): 'tilejson' | 'xyz' | 'style' | 'wmts' | 'ogc-api' {
   if (/\{z\}.*\{x\}.*\{y\}/i.test(url)) return 'xyz';
   if (/tilejson\.json|tiles\.json/i.test(url)) return 'tilejson';
   if (/\/style\.json(?:$|[?#])/i.test(url)) return 'style';
+  if (/service=wmts|GetCapabilities\.xml|wmts\/[^/]+\/[^/]+\/GetCapabilities/i.test(url)) return 'wmts';
   return 'ogc-api';
 }

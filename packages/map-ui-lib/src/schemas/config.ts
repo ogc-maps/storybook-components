@@ -71,6 +71,27 @@ export const OgcApiSourceSchema = z.object({
   proxy: z.boolean().optional(),
 });
 
+// --- WMTS Source ---
+
+export const WmtsSourceSchema = z.object({
+  id: z.string().min(1),
+  sourceType: z.literal('wmts'),
+  capabilitiesUrl: z.string().url(),
+  layer: z.string().min(1),
+  style: z.string().default('default'),
+  format: z.string().default('image/png'),
+  tileMatrixSet: z.string().default('WebMercatorQuad'),
+  /** Pre-built MapLibre tile URL template; overrides the auto-generated one. */
+  tileUrlTemplate: z.string().optional(),
+  label: z.string().optional(),
+  tileSize: z.number().default(256),
+  auth: SourceAuthSchema.optional(),
+  proxy: z.boolean().optional(),
+});
+
+/** Union of all supported map sources. */
+export const MapSourceSchema = z.union([WmtsSourceSchema, OgcApiSourceSchema]);
+
 // --- Paint Schemas (MapLibre GL JS conventions) ---
 
 export const FillPaintSchema = z.object({
@@ -710,7 +731,7 @@ export type InfoConfig = z.infer<typeof InfoConfigSchema>;
 // --- Root Map Config ---
 
 export const MapConfigSchema = z.object({
-  sources: z.array(OgcApiSourceSchema).min(1),
+  sources: z.array(MapSourceSchema).min(1),
   layers: z.array(LayerConfigSchema),
   imageryLayers: z.array(ImageryLayerConfigSchema).optional(),
   basemaps: z.array(BasemapConfigSchema).min(1),

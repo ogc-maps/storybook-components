@@ -7,7 +7,7 @@ import type {
   BasemapConfig,
   SpriteSource,
   ViewConfig,
-  OgcApiSource,
+  MapSource,
   UIConfig,
   BrandingConfig,
   SearchFilterValues,
@@ -22,7 +22,7 @@ interface MapState {
   layers: LayerConfig[];
   basemaps: BasemapConfig[];
   activeBasemapId: string;
-  sources: OgcApiSource[];
+  sources: MapSource[];
   sprites: SpriteSource[];
   uiConfig: UIConfig;
   branding: BrandingConfig | undefined;

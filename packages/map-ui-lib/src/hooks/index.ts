@@ -1,5 +1,6 @@
 import type { SearchField } from '../types';
 export { useOgcCollections, type UseOgcCollectionsResult } from './useOgcCollections';
+export { useWmtsCapabilities, type UseWmtsCapabilitiesResult } from './useWmtsCapabilities';
 export { useOgcFeatures, type UseOgcFeaturesResult } from './useOgcFeatures';
 export { useCsvExport, type UseCsvExportOptions, type UseCsvExportResult } from './useCsvExport';
 export { useExport, type UseExportOptions, type UseExportResult, type FormatConverter } from './useExport';
@@ -14,6 +15,8 @@ export { useSelection, type UseSelectionResult } from './useSelection';
 
 export type {
   OgcApiSource,
+  WmtsSource,
+  MapSource,
   LayerConfig,
   MapConfig,
   UIConfig,
@@ -115,6 +118,14 @@ export {
   type CQL2Geometry,
 } from '../utils/cql2';
 export { bboxFromGeometry, combineGeometries, type BBox } from '../utils/geo';
+export {
+  buildWmtsTileUrlTemplate,
+  adaptResourceUrlTemplate,
+  fetchWmtsCapabilities,
+  parseWmtsCapabilities,
+  type WmtsCapabilities,
+  type WmtsLayer,
+} from '../utils/wmts';
 export { extractQueryParameters, queryRequiresGeometry, type QueryParameter } from '../utils/queryParameters';
 export { getGeometryPropertyNames } from '../utils/queryableHelpers';
 export type { SelectionMode, SelectedFeature } from '../utils/selection';

@@ -1,4 +1,5 @@
 export * from './ogcApi';
+export * from './wmts';
 export * from './csvExport';
 export * from './cql2';
 export * from './propertyFilters';

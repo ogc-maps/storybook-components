@@ -8,6 +8,7 @@ import {
   InfoConfigSchema,
   MapConfigSchema,
   ViewConfigSchema,
+  WmtsSourceSchema,
 } from '../config';
 
 const baseMapConfig = {
@@ -437,5 +438,102 @@ describe('InfoConfigSchema', () => {
     };
     const result = InfoConfigSchema.parse(input);
     expect(result).toEqual(input);
+  });
+});
+
+describe('WmtsSourceSchema', () => {
+  const validWmts = {
+    id: 'nasa-gibs',
+    sourceType: 'wmts' as const,
+    capabilitiesUrl: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GetCapabilities.xml',
+    layer: 'MODIS_Terra_CorrectedReflectance_TrueColor',
+    style: 'default',
+    format: 'image/jpeg',
+    tileMatrixSet: 'GoogleMapsCompatible_Level9',
+  };
+
+  it('parses a valid WMTS source with defaults', () => {
+    const result = WmtsSourceSchema.parse(validWmts);
+    expect(result.id).toBe('nasa-gibs');
+    expect(result.sourceType).toBe('wmts');
+    expect(result.layer).toBe('MODIS_Terra_CorrectedReflectance_TrueColor');
+    expect(result.tileSize).toBe(256);
+  });
+
+  it('applies default values for style, format, tileMatrixSet', () => {
+    const minimal = {
+      id: 'test',
+      sourceType: 'wmts' as const,
+      capabilitiesUrl: 'https://example.com/wmts/GetCapabilities.xml',
+      layer: 'my-layer',
+    };
+    const result = WmtsSourceSchema.parse(minimal);
+    expect(result.style).toBe('default');
+    expect(result.format).toBe('image/png');
+    expect(result.tileMatrixSet).toBe('WebMercatorQuad');
+    expect(result.tileSize).toBe(256);
+  });
+
+  it('rejects WMTS source missing required layer', () => {
+    const invalid = { id: 'test', sourceType: 'wmts', capabilitiesUrl: 'https://example.com/wmts/GetCapabilities.xml' };
+    expect(() => WmtsSourceSchema.parse(invalid)).toThrow();
+  });
+
+  it('rejects WMTS source with invalid capabilitiesUrl', () => {
+    const invalid = { ...validWmts, capabilitiesUrl: 'not-a-url' };
+    expect(() => WmtsSourceSchema.parse(invalid)).toThrow();
+  });
+});
+
+describe('MapConfigSchema with WMTS sources', () => {
+  const baseConfig = {
+    layers: [],
+    basemaps: [{ id: 'osm', label: 'OSM', url: 'https://example.com/style.json' }],
+    initialView: { latitude: 0, longitude: 0, zoom: 2 },
+  };
+
+  it('accepts a MapConfig with an OGC API source (backward compat)', () => {
+    const config = {
+      ...baseConfig,
+      sources: [{ id: 'src-1', url: 'https://example.com/ogc' }],
+    };
+    const result = MapConfigSchema.parse(config);
+    expect(result.sources).toHaveLength(1);
+  });
+
+  it('accepts a MapConfig with a WMTS source', () => {
+    const config = {
+      ...baseConfig,
+      sources: [
+        {
+          id: 'gibs',
+          sourceType: 'wmts',
+          capabilitiesUrl: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GetCapabilities.xml',
+          layer: 'MODIS_Terra_CorrectedReflectance_TrueColor',
+        },
+      ],
+    };
+    const result = MapConfigSchema.parse(config);
+    expect(result.sources).toHaveLength(1);
+    const src = result.sources[0] as { sourceType: string; layer: string };
+    expect(src.sourceType).toBe('wmts');
+    expect(src.layer).toBe('MODIS_Terra_CorrectedReflectance_TrueColor');
+  });
+
+  it('accepts a MapConfig with mixed OGC API and WMTS sources', () => {
+    const config = {
+      ...baseConfig,
+      sources: [
+        { id: 'ogc-src', url: 'https://example.com/ogc' },
+        {
+          id: 'gibs',
+          sourceType: 'wmts',
+          capabilitiesUrl: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GetCapabilities.xml',
+          layer: 'MODIS_Terra_CorrectedReflectance_TrueColor',
+        },
+      ],
+    };
+    const result = MapConfigSchema.parse(config);
+    expect(result.sources).toHaveLength(2);
   });
 });

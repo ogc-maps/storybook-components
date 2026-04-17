@@ -4,6 +4,8 @@ import {
   ViewConfigSchema,
   SourceAuthSchema,
   OgcApiSourceSchema,
+  WmtsSourceSchema,
+  MapSourceSchema,
   FillPaintSchema,
   LinePaintSchema,
   CirclePaintSchema,
@@ -65,6 +67,8 @@ export type GeometryType = z.infer<typeof GeometryTypeSchema>;
 export type ViewConfig = z.infer<typeof ViewConfigSchema>;
 export type SourceAuth = z.infer<typeof SourceAuthSchema>;
 export type OgcApiSource = z.infer<typeof OgcApiSourceSchema>;
+export type WmtsSource = z.infer<typeof WmtsSourceSchema>;
+export type MapSource = z.infer<typeof MapSourceSchema>;
 
 export type FillPaint = z.infer<typeof FillPaintSchema>;
 export type LinePaint = z.infer<typeof LinePaintSchema>;
@@ -185,6 +189,8 @@ export {
   ViewConfigSchema,
   SourceAuthSchema,
   OgcApiSourceSchema,
+  WmtsSourceSchema,
+  MapSourceSchema,
   FillPaintSchema,
   LinePaintSchema,
   CirclePaintSchema,

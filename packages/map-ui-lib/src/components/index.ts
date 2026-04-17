@@ -74,8 +74,8 @@ export type {
 // Admin components
 export { FormField, ColorPicker, ConfirmDialog, CollapsibleSection } from './admin';
 export type { FormFieldProps, ColorPickerProps, ConfirmDialogProps, CollapsibleSectionProps } from './admin';
-export { SourceEditor, SourceList, isFeatureSource, isSourceType } from './SourceEditor';
-export type { SourceEditorProps, SourceListProps } from './SourceEditor';
+export { SourceEditor, SourceList, isFeatureSource, isSourceType, WmtsSourceEditor } from './SourceEditor';
+export type { SourceEditorProps, SourceListProps, WmtsSourceEditorProps } from './SourceEditor';
 export { CollectionBrowser } from './CollectionBrowser';
 export type { CollectionBrowserProps } from './CollectionBrowser';
 export { StyleEditor, defaultFill, defaultLine, defaultCircle, defaultSymbol } from './StyleEditor';
