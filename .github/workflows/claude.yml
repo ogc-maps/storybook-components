@@ -1,36 +1,4 @@
-name: Claude Agent
-
-# Full pipeline agent with five modes, triggered by labels, comments, or
-# project board column moves (via label sync).
-#
-# Modes:
-#   clarify   — reads the issue, asks clarifying questions, proposes acceptance criteria
-#   plan      — reads the issue + skills, posts a detailed implementation plan
-#   implement — executes the plan, runs pnpm verify, opens a PR
-#   review    — checks out the PR branch, runs tests, reviews code, approves or requests changes
-#   default   — freeform @claude interaction (unchanged fallback)
-#
-# Trigger model — labels are the canonical trigger. Three input paths:
-#
-#   1. Labels:   apply status:clarify, status:ready, status:in-progress, or
-#                status:in-review to an issue/PR.
-#   2. Comments: @claude clarify, @claude plan, @claude ready, @claude implement,
-#                @claude review, or plain @claude.
-#   3. Project board: configure GitHub Projects automation to apply labels
-#                     when items move columns. The label triggers this workflow.
-#
-# Typical flow:
-#   1. Create an issue describing the task.
-#   2. Apply status:clarify (or comment @claude clarify) → agent asks questions.
-#   3. When requirements are clear, apply status:ready (or @claude plan) → agent posts plan.
-#   4. Review the plan, then apply status:in-progress (or @claude implement) → agent opens PR.
-#   5. Apply status:in-review to the PR (or @claude review) → agent reviews and approves/denies.
-#   6. Human merges the PR.
-#
-# Cost controls:
-#   - --max-turns caps tool-call cycles per run.
-#   - Concurrency is per issue/PR so duplicate triggers don't fan out.
-#   - 30-minute hard timeout.
+name: Claude Code
 
 on:
   issue_comment:
@@ -38,392 +6,45 @@ on:
   pull_request_review_comment:
     types: [created]
   issues:
-    types: [opened, labeled]
-  pull_request:
-    types: [labeled]
-
-concurrency:
-  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
-  cancel-in-progress: false
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  id-token: write
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   claude:
-    # Gate: only run when triggered by a relevant label or @claude mention (not from bots).
     if: |
-      github.event.sender.type != 'Bot' && (
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'issues' && github.event.action == 'labeled' && startsWith(github.event.label.name, 'status:')) ||
-        (github.event_name == 'issues' && github.event.action != 'labeled' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))) ||
-        (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'status:in-review')
-      )
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read # Required for Claude to read CI results on PRs
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # ─── MODE DETECTION ──────────────────────────────────────────────────
-      # Priority: label events first, then comment keywords, then fallback.
-      - name: Detect mode
-        id: mode
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_ACTION: ${{ github.event.action }}
-          LABEL_NAME: ${{ github.event.label.name }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-        run: |
-          mode="default"
-          base_branch="main"
-
-          # --- Label-triggered modes ---
-          if [[ "$EVENT_NAME" == "issues" && "$EVENT_ACTION" == "labeled" ]]; then
-            case "$LABEL_NAME" in
-              status:clarify)     mode="clarify" ;;
-              status:ready)       mode="plan" ;;
-              status:in-progress) mode="implement" ;;
-            esac
-          elif [[ "$EVENT_NAME" == "pull_request" && "$EVENT_ACTION" == "labeled" ]]; then
-            if [[ "$LABEL_NAME" == "status:in-review" ]]; then
-              mode="review"
-            fi
-          fi
-
-          # --- Comment-triggered modes (only if not already set by label) ---
-          # Handles: issue_comment, pull_request_review_comment, and issue body @claude mentions.
-          if [[ "$mode" == "default" ]]; then
-            body="${COMMENT_BODY:-$ISSUE_BODY}"
-            if echo "$body" | grep -qiE '@claude[[:space:]]+clarify'; then
-              mode="clarify"
-            elif echo "$body" | grep -qiE '@claude[[:space:]]+(plan|ready)'; then
-              mode="plan"
-            elif echo "$body" | grep -qiE '@claude[[:space:]]+implement'; then
-              mode="implement"
-            elif echo "$body" | grep -qiE '@claude[[:space:]]+review'; then
-              mode="review"
-            fi
-
-            # Extract --base flag for implement mode
-            if [[ "$mode" == "implement" ]]; then
-              extracted=$(echo "$body" | grep -oiE '\-\-base[[:space:]]+[a-zA-Z0-9/_.-]+' | head -1 | awk '{print $2}')
-              if [[ -n "$extracted" ]]; then
-                base_branch="$extracted"
-              fi
-            fi
-          fi
-
-          echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "base_branch=$base_branch" >> "$GITHUB_OUTPUT"
-          echo "Detected mode: $mode (base: $base_branch)"
-
-      # ─── CLARIFY MODE ───────────────────────────────────────────────────
-      - name: Run Claude (clarify)
-        if: steps.mode.outputs.mode == 'clarify'
+      - name: Run Claude Code
+        id: claude
         uses: anthropics/claude-code-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --max-turns 30
-          prompt: |
-            You are in CLARIFY MODE. A task has been filed as a GitHub issue.
-            Your job is to read it, understand it, ask clarifying questions,
-            and propose clear acceptance criteria. You do NOT write code.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
-            Steps:
+          # This is an optional setting that allows Claude to read CI results on PRs
+          additional_permissions: |
+            actions: read
 
-            1. Read the issue body carefully.
+          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
+          # prompt: 'Update the pull request description to include a summary of changes.'
 
-            2. Read `.claude/skills/project-conventions/SKILL.md` and `CLAUDE.md`
-               to understand the project's architecture and conventions.
+          # Optional: Add claude_args to customize behavior and configuration
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+          # claude_args: '--allowed-tools Bash(gh pr *)'
 
-            3. Read any files mentioned in the issue or that you think are
-               relevant to understanding the scope of the task.
-
-            4. Post a single comment with this structure:
-
-               ## Clarification
-
-               **My understanding of the task:**
-               (1–2 paragraphs summarizing what you think needs to happen)
-
-               **Questions:**
-               1. (specific question about ambiguous requirement)
-               2. (question about scope boundary)
-               ...
-               If no questions: "None — requirements are clear."
-
-               **Proposed acceptance criteria:**
-               - [ ] Criterion 1
-               - [ ] Criterion 2
-               - [ ] `pnpm verify` passes
-               ...
-
-               **Suggested skills to follow:**
-               - `skill-name` — reason
-
-               ---
-               *When you're satisfied with the criteria, apply the `status:ready`
-               label or comment `@claude plan` to proceed to planning.*
-
-            BUDGET: Read at most ~10 files total. After that, you
-              MUST post the
-              comment even if you still have questions (list them in
-              the Questions
-              section). Posting the comment is the ONLY success
-              criterion —
-              exploration that never posts is a failure.
-
-            HARD CONSTRAINTS:
-            - DO NOT modify any files.
-            - DO NOT create branches, commits, or pull requests.
-            - DO read files freely.
-
-      # ─── PLAN MODE ──────────────────────────────────────────────────────
-      - name: Run Claude (plan)
-        if: steps.mode.outputs.mode == 'plan'
-        uses: anthropics/claude-code-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --max-turns 20
-          prompt: |
-            You are in PLAN MODE. The human has asked you to plan an
-            implementation, NOT to write code. Producing a thoughtful plan is
-            the entire deliverable for this run.
-
-            Steps:
-
-            1. Read the issue body and ALL of its comments in chronological
-               order. If there was a clarification round (look for a
-               "## Clarification" comment), use the agreed-upon acceptance
-               criteria as your guide.
-
-            2. Read `.claude/skills/project-conventions/SKILL.md` first. Then
-               look at the other skills in `.claude/skills/` and read whichever
-               ones are relevant to the task (their descriptions are in the
-               frontmatter — pick based on those).
-
-            3. Read the existing files the task touches so your plan is
-               grounded in the real code, not assumptions.
-
-            4. Post a single comment on the issue with this exact structure:
-
-               ## Plan
-
-               **Task as I understand it:** (one paragraph)
-
-               **Acceptance criteria:** (from clarification, or your own)
-               - [ ] ...
-
-               **Files I'll touch:**
-               - `path/to/file.ts` — what changes
-               - `path/to/other.ts` — what changes
-
-               **Approach:**
-               1. Step one
-               2. Step two
-               3. ...
-
-               **Skills I'll follow:** list the .claude/skills/ entries you'll
-               read during implementation, with one-line reasons.
-
-               **Open questions:** any clarifications you need from the human
-               before implementing. If there are none, write "None — ready to
-               implement."
-
-               **Risks / things to watch for:** anything that could go sideways
-               (schema migrations, breaking changes, missing test coverage).
-
-               ---
-               *To implement this plan, apply the `status:in-progress` label
-               or comment `@claude implement`.*
-
-            HARD CONSTRAINTS — these are non-negotiable in plan mode:
-            - DO NOT modify any files in the repository.
-            - DO NOT create branches, commits, or pull requests.
-            - DO NOT run `pnpm verify`, `pnpm build`, or any code-modifying tool.
-            - DO read files freely; reading is the whole point.
-
-      # ─── IMPLEMENT MODE ─────────────────────────────────────────────────
-      - name: Run Claude (implement)
-        if: steps.mode.outputs.mode == 'implement'
-        uses: anthropics/claude-code-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --max-turns 60
-          prompt: |
-            You are in IMPLEMENT MODE. A plan was previously posted in this
-            issue's comment thread. Your job is to execute it and open a PR.
-
-            BASE BRANCH: ${{ steps.mode.outputs.base_branch }}
-            (Branch your work from this ref instead of the default branch.)
-
-            Steps:
-
-            1. Read the issue body and ALL of its comments in chronological
-               order. Find the most recent comment that contains a "## Plan"
-               section — that's the plan you're implementing. If the human
-               added clarifications in comments AFTER the plan, those
-               clarifications override the plan where they conflict.
-
-            2. If you can't find a plan, stop and post a comment asking the
-               human to first run `@claude plan` so there's something to
-               implement against. Do not start coding from a blank slate.
-
-            3. Check out the base branch:
-               git checkout ${{ steps.mode.outputs.base_branch }}
-
-            4. Read `.claude/skills/project-conventions/SKILL.md` and any
-               other skills the plan referenced.
-
-            5. Implement the plan. Follow the project conventions strictly —
-               in particular: no MapLibre in `packages/map-ui-lib`, fully
-               controlled components, the `mapui:` Tailwind prefix in lib
-               code, and the Config→Zod→Zustand→nuqs data flow.
-
-            6. Run `pnpm verify` (which is `pnpm build && pnpm test`). It
-               must exit 0 before you hand off. If it fails:
-               - First try to fix the failure.
-               - If the failure is genuine and out of scope for this task,
-                 open the PR as a DRAFT and explain the failure clearly in
-                 the PR description rather than silently skipping it.
-
-            7. Open a pull request targeting ${{ steps.mode.outputs.base_branch }} that:
-               - Has a clear title summarizing the change
-               - Links the issue with `Closes #<issue-number>`
-               - In the body, summarizes what you did, lists the files you
-                 changed, and notes any deviations from the plan with the reason
-               - Is marked draft only if `pnpm verify` is failing
-
-            8. Apply the label `status:in-review` to the pull request.
-
-            9. Post a comment on the original issue linking to the PR.
-
-            Operate from the plan, not from your own re-interpretation of
-            the issue. If the plan is wrong or incomplete, stop and ask in a
-            comment instead of guessing.
-
-      # ─── REVIEW MODE ────────────────────────────────────────────────────
-      - name: Run Claude (review)
-        if: steps.mode.outputs.mode == 'review'
-        uses: anthropics/claude-code-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --max-turns 50
-          prompt: |
-            You are in REVIEW MODE. A pull request has been submitted and
-            needs a thorough code review. You will review the code, run
-            tests, check conventions, and submit a formal PR review.
-
-            Steps:
-
-            1. Read the PR description and the linked issue (if any) to
-               understand the intent and acceptance criteria.
-
-            2. Read `.claude/skills/project-conventions/SKILL.md` and
-               `CLAUDE.md` to understand the project's non-negotiable rules.
-
-            3. Check out the PR branch and run `pnpm verify`. Note whether
-               it passes or fails.
-
-            4. Read the full diff (`git diff` against the base branch).
-               For each changed file, evaluate:
-
-               **Convention compliance:**
-               - No MapLibre imports in `packages/map-ui-lib/`
-               - All components are fully controlled (data via props, changes via callbacks)
-               - `mapui:` prefix on all Tailwind classes in lib code
-               - Config→Zod→Zustand→nuqs data flow respected
-               - New components have Storybook stories
-               - New components are exported from barrel + main.ts
-               - Schema changes have test fixtures
-
-               **Code quality:**
-               - Clear naming and structure
-               - No dead code or debug artifacts (console.log, TODO hacks)
-               - Error handling for edge cases
-               - TypeScript types are precise (no unnecessary `any`)
-
-               **Test coverage:**
-               - Are there tests for new functionality?
-               - Do existing tests still make sense with the changes?
-               - Are there obvious test gaps?
-
-            5. Submit a formal PR review using the GitHub review API:
-
-               If everything is good:
-               - APPROVE the PR
-               - Include a brief summary of what you verified
-
-               If there are issues:
-               - REQUEST CHANGES
-               - Leave specific, actionable inline comments on the lines
-                 that need fixing
-               - In the review summary, list the issues categorized as:
-                 - **Must fix:** convention violations, bugs, test failures
-                 - **Should fix:** code quality, missing tests
-                 - **Nit:** style, naming preferences
-               - Be specific about what to change, not just what's wrong
-
-            6. If `pnpm verify` failed, that's an automatic REQUEST CHANGES
-               regardless of code quality.
-
-            IMPORTANT:
-            - You CAN approve or request changes — you have full review authority.
-            - You CANNOT merge the PR. Only a human merges.
-            - If you request changes, the human or another agent will push
-              fixes. When `status:in-review` is reapplied, you'll review again.
-            - Be constructive. Point out what's good, not just what's wrong.
-
-      # ─── DEFAULT (FREEFORM FALLBACK) ─────────────────────────────────────
-      - name: Run Claude (default)
-        if: steps.mode.outputs.mode == 'default'
-        uses: anthropics/claude-code-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --max-turns 30
-          prompt: |
-            You are in DEFAULT MODE. The user has @mentioned you in a comment
-            on an issue or pull request. Read the full conversation context
-            (issue body, all comments, PR diff if applicable) and respond
-            helpfully.
-
-            Read `CLAUDE.md` and `.claude/skills/project-conventions/SKILL.md`
-            to understand the project's architecture before answering.
-
-            You may read files, run commands, and make changes if the user
-            explicitly asks for them. Otherwise, just answer the question or
-            provide guidance.
-
-            If the user seems to want a full implementation, suggest they use
-            one of the structured modes instead:
-            - `@claude clarify` — ask questions and propose acceptance criteria
-            - `@claude plan` — create a detailed implementation plan
-            - `@claude implement` — execute a plan and open a PR
-            - `@claude review` — review a PR
