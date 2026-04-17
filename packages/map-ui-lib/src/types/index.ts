@@ -23,6 +23,9 @@ import {
   NumberSearchFieldSchema,
   DatetimeSearchFieldSchema,
   SelectSearchFieldSchema,
+  CategoryMatchRuleSchema,
+  CategoryGroupSchema,
+  CategorySearchFieldSchema,
   SearchFieldSchema,
   SearchConfigSchema,
   GlobalSearchPropertySchema,
@@ -89,6 +92,9 @@ export type TextSearchField = z.infer<typeof TextSearchFieldSchema>;
 export type NumberSearchField = z.infer<typeof NumberSearchFieldSchema>;
 export type DatetimeSearchField = z.infer<typeof DatetimeSearchFieldSchema>;
 export type SelectSearchField = z.infer<typeof SelectSearchFieldSchema>;
+export type CategoryMatchRule = z.infer<typeof CategoryMatchRuleSchema>;
+export type CategoryGroup = z.infer<typeof CategoryGroupSchema>;
+export type CategorySearchField = z.infer<typeof CategorySearchFieldSchema>;
 export type SearchField = z.infer<typeof SearchFieldSchema>;
 export type SearchConfig = z.infer<typeof SearchConfigSchema>;
 
@@ -204,6 +210,9 @@ export {
   NumberSearchFieldSchema,
   DatetimeSearchFieldSchema,
   SelectSearchFieldSchema,
+  CategoryMatchRuleSchema,
+  CategoryGroupSchema,
+  CategorySearchFieldSchema,
   SearchFieldSchema,
   SearchConfigSchema,
   GlobalSearchPropertySchema,

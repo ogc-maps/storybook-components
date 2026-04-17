@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import type { LayerConfig, SearchFilterValues, SearchFilterValue, SearchField, NumberSearchField, DatetimeSearchField, TextSearchField, SelectSearchField, AvailableProperty } from '../../types';
+import type { LayerConfig, SearchFilterValues, SearchFilterValue, SearchField, NumberSearchField, DatetimeSearchField, TextSearchField, SelectSearchField, CategorySearchField, AvailableProperty } from '../../types';
 import type { PropertyFilter } from '../../utils/propertyFilters';
 import { AutocompleteInput } from './AutocompleteInput';
 import { DateRangeInput } from './DateRangeInput';
@@ -269,6 +269,26 @@ export function SearchPanel({
                         {allOptions.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
+                          </option>
+                        ))}
+                      </select>
+                    );
+                  })() : field.type === 'category' ? (() => {
+                    const catField = field as CategorySearchField;
+                    return (
+                      <select
+                        id={fieldId}
+                        value={(value as string) ?? ''}
+                        onChange={(e) => {
+                          const newValue = e.target.value || undefined;
+                          onFilterChange(layer.id, field.property, newValue);
+                        }}
+                        className="mapui:rounded mapui:border mapui:border-slate-300 mapui:px-2 mapui:py-1 mapui:text-sm mapui:outline-none focus:mapui:border-blue-500 focus:mapui:ring-1 focus:mapui:ring-blue-500"
+                      >
+                        <option value="">{field.placeholder ?? 'Select a group…'}</option>
+                        {catField.categoryGroups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.label}
                           </option>
                         ))}
                       </select>

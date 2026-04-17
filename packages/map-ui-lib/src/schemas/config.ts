@@ -288,11 +288,40 @@ export const SelectSearchFieldSchema = z.object({
   zoomTo: z.boolean().optional(),
 });
 
+// --- Category Group Schemas ---
+
+export const CategoryMatchRuleSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('values'),
+    values: z.array(z.union([z.string(), z.number()])),
+  }),
+  z.object({
+    kind: z.literal('pattern'),
+    operator: z.enum(['contains', 'not_contains', 'startsWith', 'endsWith', 'equals', 'not_equals']),
+    pattern: z.string(),
+  }),
+  z.object({ kind: z.literal('catchAll') }),
+]);
+
+export const CategoryGroupSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  color: z.string(),
+  matchRule: CategoryMatchRuleSchema,
+});
+
+export const CategorySearchFieldSchema = z.object({
+  ...searchFieldBase,
+  type: z.literal('category'),
+  categoryGroups: z.array(CategoryGroupSchema).min(1),
+});
+
 export const SearchFieldSchema = z.discriminatedUnion('type', [
   TextSearchFieldSchema,
   NumberSearchFieldSchema,
   DatetimeSearchFieldSchema,
   SelectSearchFieldSchema,
+  CategorySearchFieldSchema,
 ]);
 
 export const SearchConfigSchema = z.object({
@@ -498,6 +527,8 @@ const layerConfigFields = {
   cql2Filter: Cql2FilterConfigSchema.optional(),
   showTooltip: z.boolean().optional(),
   showDetailPanel: z.boolean().optional(),
+  /** Named category groups used for paint expressions and filter shortcuts. */
+  categoryGroups: z.array(CategoryGroupSchema).optional(),
 };
 
 export const LayerConfigSchema = z.preprocess(

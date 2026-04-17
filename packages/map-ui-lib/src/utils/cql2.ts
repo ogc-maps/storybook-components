@@ -235,6 +235,14 @@ export function fromStructuredFilters(
 
     const field = fieldMap.get(property);
 
+    // Category field: value is a group id; compile to CQL2 via the group's match rule
+    if (field?.type === 'category' && typeof value === 'string') {
+      const catField = field as import('../types').CategorySearchField;
+      const group = catField.categoryGroups.find((g) => g.id === value);
+      if (!group) return null;
+      return categoryGroupToCql2Inline(group, property);
+    }
+
     // Plain string
     if (typeof value === 'string') {
       if (value === '') return null;
@@ -288,6 +296,34 @@ export function fromStructuredFilters(
 /** Serializes a CQL2 expression to a JSON string for use as a query parameter. */
 export function serializeCql2(expr: CQL2Expression): string {
   return JSON.stringify(expr);
+}
+
+// ---------------------------------------------------------------------------
+// Category group → CQL2 (inline, avoids circular import with categoryGroups.ts)
+// ---------------------------------------------------------------------------
+
+function categoryGroupToCql2Inline(
+  group: import('../types').CategoryGroup,
+  property: string,
+): CQL2Expression | null {
+  const rule = group.matchRule;
+  if (rule.kind === 'catchAll') return null;
+  if (rule.kind === 'values') {
+    if (rule.values.length === 0) return null;
+    if (rule.values.length === 1) return eq(property, rule.values[0] as string | number);
+    return inList(property, rule.values as (string | number)[]);
+  }
+  // pattern
+  const { operator, pattern } = rule;
+  switch (operator) {
+    case 'contains':     return like(property, `%${pattern}%`);
+    case 'not_contains': return not(like(property, `%${pattern}%`));
+    case 'startsWith':   return like(property, `${pattern}%`);
+    case 'endsWith':     return like(property, `%${pattern}`);
+    case 'equals':       return eq(property, pattern);
+    case 'not_equals':   return neq(property, pattern);
+    default:             return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

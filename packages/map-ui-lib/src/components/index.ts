@@ -71,6 +71,8 @@ export type {
   ResultsDrawerSort,
   SortDirection,
 } from './ResultsDrawer';
+export { CategoryGroupEditor } from './CategoryGroupEditor';
+export type { CategoryGroupEditorProps } from './CategoryGroupEditor';
 // Admin components
 export { FormField, ColorPicker, ConfirmDialog, CollapsibleSection } from './admin';
 export type { FormFieldProps, ColorPickerProps, ConfirmDialogProps, CollapsibleSectionProps } from './admin';
