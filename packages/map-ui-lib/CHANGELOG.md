@@ -1,5 +1,81 @@
 # @ogc-maps/storybook-components
 
+## 0.16.0
+
+### Minor Changes
+
+- 8471753: Phase 2 UI additions:
+
+  - Add `ScaleBarControl` component with Web Mercator `metersPerPixel`,
+    `computeMetricScale`, and `computeImperialScale` helpers.
+  - Extend `UIConfig` with `showScaleBar`, `legendOrder`, and
+    `coordinateFormat` (`decimal-degrees` | `ddm` | `dms`).
+  - `Legend` accepts a `legendOrder` prop for explicit layer ordering.
+  - `CoordinateDisplay` exports `formatDDM` and defaults now include DDM.
+  - `UIConfigEditor` gains a Legend Order reorder UI and a Coordinate
+    Format dropdown (gated on `showCoordinateDisplay`).
+
+- 55ba21d: Phase 3 — export selected + interactive results table:
+
+  - `ExportModal` gains a "Source" toggle between "All (filtered)" and
+    "Selected only" when `selectionCount > 0`. New props `selectionCount`
+    and `selectionLayerId` lock the layer picker to the selection layer
+    while in "Selected only" mode. `ExportRequest` gains a `mode:
+'all' | 'selected'` field so consumers can route selected exports to
+    the new `useExport().exportFeatures(...)` entry point and skip the
+    API fetch.
+  - `useExport` returns a new `exportFeatures(features, collectionId,
+formatId, filename)` function that converts an in-memory feature
+    array directly to the requested format.
+  - `ResultsDrawer` becomes interactive: hide/show columns via a column
+    picker, reorder columns with per-header arrow buttons, and cycle
+    ascending/descending/none sorting on any column. All three are
+    controlled via new optional props (`columnOrder`,
+    `onColumnOrderChange`, `hiddenColumns`, `onHiddenColumnsChange`,
+    `sortBy`, `onSortChange`) and fall back to internal state when
+    uncontrolled. New `ResultsDrawerSort` / `SortDirection` exports.
+
+- c5fd64a: Phase 3 geo + coordinate additions (Chunks 3B, 3C):
+
+  - `utils/geo.ts` exports a new `zoomToFeature(geometry, options)` helper that
+    returns a `ZoomToFeatureInstruction` — either `fitBounds` (for polygon/line
+    geometries, with a `maxZoom` cap so small polygons don't snap to max zoom) or
+    `flyTo` (for point/zero-area geometries, respecting layer `minZoom`/`maxZoom`
+    and an optional `pointZoom` preference). Exported constants:
+    `DEFAULT_POINT_ZOOM`, `DEFAULT_POLYGON_MAX_ZOOM`.
+  - `LayerConfigSchema` accepts an optional `zoomToLevel` override used as the
+    preferred zoom when fitting to point features.
+  - `CoordinateDisplay` gains `onNavigate`, `isExpanded`, and `onToggleExpand`
+    props. When `onNavigate` is provided, clicking the readout expands an inline
+    lat/lng input form that accepts decimal degrees, DDM, or DMS (with optional
+    N/S/E/W) via the newly exported `parseCoordinate` helper.
+
+- 81d6d62: Phase 4 — color themes, expanded search, PDF export, and imagery thumbnails:
+
+  - **Color themes for StyleEditor**: `StyleEditor` accepts optional
+    `themes` (an array of named color palettes) and exposes a theme picker
+    that fills in stroke/fill colors from the chosen palette in one click.
+  - **Expanded SearchPanel**: `SearchPanel` gains optional `expandable`,
+    `expanded`, and `onExpandedChange` props. When expanded, the panel
+    renders inside a centered modal and shows a new `AllFiltersBuilder`
+    section for ad-hoc per-layer `FilterRule` construction. New optional
+    props: `availableProperties`, `customRules`, `onCustomRulesChange`.
+  - **PdfExportDialog**: new library component — a form-only modal for
+    title, filename, and include-toggles (legend / scale bar / north
+    arrow). Library stays framework-agnostic; jsPDF/html2canvas rendering
+    is left to the consuming app. Gated in the client via the new
+    `UIConfigSchema.showExportPdf` flag.
+  - **Imagery thumbnails**: `ImageryLayerConfigSchema` gains an optional
+    `thumbnailUrl`. `ImageryPanel` renders the preview next to each layer
+    (or a placeholder block when absent), and `ImageryEditor` exposes a
+    Thumbnail URL field.
+
+- 4ef3af6: Phase 5: new `SideMenuPanel` + `SideMenuToggle` components for grouping map controls into a slide-in menu. `UIConfigSchema` gains `controlLayout` (`individual` / `side-menu` / `auto`), `controlPositions` (per-control corner override), and `controlIcons` (per-control icon override by name). Exports a curated `CONTROL_ICON_MAP` / `CONTROL_ICON_NAMES` / `getControlIcon` helper. `UIConfigEditor` now renders a layout radio, per-control corner select, and per-control icon picker. Mobile-friendliness fixes: modals (`ExportModal`, `PdfExportDialog`, `ConfirmDialog`, `InfoModal`) get horizontal padding and scroll on narrow viewports.
+
+### Patch Changes
+
+- 482faf8: Fix shapefile export: migrate from the unmaintained `shp-write@0.3` to `@mapbox/shp-write@0.4` so browser exports actually work. The old version called `options.types` unconditionally (throwing when no options were passed) and only generated base64 strings via JSZip 2. The converter now requests a Blob directly, picks friendlier file names inside the zip, and surfaces clear errors for empty feature collections or features without geometry.
+
 ## 0.15.0
 
 ### Minor Changes
