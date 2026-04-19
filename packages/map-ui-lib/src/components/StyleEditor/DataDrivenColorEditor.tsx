@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AvailableProperty, FetchDistinctValuesFn } from '../../types';
+import type { AvailableProperty, FetchDistinctValuesFn, CategoryGroup } from '../../types';
 import { ColorPicker } from '../admin/ColorPicker';
 import { getColorFromPalette } from '../../utils/colorPalettes';
 import { COLOR_THEMES, COLOR_THEME_IDS, type ColorThemeId } from '../../utils/colorThemes';
+import { CategoryGroupEditor } from '../CategoryGroupEditor/CategoryGroupEditor';
+import { categoryGroupsToMaplibreExpression } from '../../utils/categoryGroups';
 
 export interface DataDrivenColorEditorProps {
   value: unknown[];
@@ -15,7 +17,7 @@ export interface DataDrivenColorEditorProps {
   onThemeChange?: (theme: ColorThemeId) => void;
 }
 
-type ExprMode = 'match' | 'interpolate';
+type ExprMode = 'match' | 'interpolate' | 'groups';
 
 interface MatchPair {
   value: string;
@@ -33,7 +35,9 @@ interface EditableStop {
 }
 
 function detectMode(expr: unknown[]): ExprMode {
-  return expr[0] === 'interpolate' ? 'interpolate' : 'match';
+  if (expr[0] === 'interpolate') return 'interpolate';
+  if (expr[0] === 'case') return 'groups';
+  return 'match';
 }
 
 function parseMatchExpr(expr: unknown[]): { property: string; pairs: MatchPair[]; fallback: string } {
@@ -129,6 +133,11 @@ export function DataDrivenColorEditor({
   const [mode, setMode] = useState<ExprMode>(() => detectMode(value));
   const [autoPopulating, setAutoPopulating] = useState(false);
   const [scanAll, setScanAll] = useState(false);
+
+  // Groups mode state
+  const [groupsProperty, setGroupsProperty] = useState('');
+  const [groups, setGroups] = useState<CategoryGroup[]>([]);
+  const [groupsFallback, setGroupsFallback] = useState('#cccccc');
 
   // Match state
   const parsed = parseMatchExpr(value);
@@ -263,16 +272,43 @@ export function DataDrivenColorEditor({
     propagateIfValid(interpolateProperty, next);
   };
 
+  // --- Groups handlers ---
+  const handleGroupsPropertyChange = (property: string) => {
+    setGroupsProperty(property);
+    if (groups.length > 0 && property) {
+      onChange(categoryGroupsToMaplibreExpression(groups, property, groupsFallback));
+    }
+  };
+
+  const handleGroupsChange = (nextGroups: CategoryGroup[]) => {
+    setGroups(nextGroups);
+    if (groupsProperty) {
+      onChange(categoryGroupsToMaplibreExpression(nextGroups, groupsProperty, groupsFallback));
+    }
+  };
+
+  const handleGroupsFallbackChange = (color: string) => {
+    setGroupsFallback(color);
+    if (groupsProperty) {
+      onChange(categoryGroupsToMaplibreExpression(groups, groupsProperty, color));
+    }
+  };
+
   // --- Mode switch ---
   const handleModeSwitch = (newMode: ExprMode) => {
     setMode(newMode);
     if (newMode === 'match') {
       onChange(buildMatchExpr('', [], '#000000'));
-    } else {
+    } else if (newMode === 'interpolate') {
       setEditableStops([]);
       setInterpolateProperty('');
       setStopErrors([]);
       onChange(buildInterpolateExpr('', []));
+    } else {
+      setGroups([]);
+      setGroupsProperty('');
+      setGroupsFallback('#cccccc');
+      onChange(['case', '#cccccc']);
     }
   };
 
@@ -297,20 +333,20 @@ export function DataDrivenColorEditor({
       )}
       {/* Mode toggle */}
       <div className="mapui:flex mapui:overflow-hidden mapui:rounded mapui:border mapui:border-slate-300">
-        {(['match', 'interpolate'] as ExprMode[]).map((m) => (
+        {([['match', 'Categorical'], ['groups', 'Groups'], ['interpolate', 'Gradient']] as [ExprMode, string][]).map(([m, label]) => (
           <button
             key={m}
             type="button"
             onClick={() => handleModeSwitch(m)}
             className={[
-              'mapui:flex-1 mapui:cursor-pointer mapui:border-0 mapui:px-3 mapui:py-1 mapui:text-xs mapui:capitalize mapui:outline-none',
+              'mapui:flex-1 mapui:cursor-pointer mapui:border-0 mapui:px-3 mapui:py-1 mapui:text-xs mapui:outline-none',
               'focus:mapui:ring-1 focus:mapui:ring-inset focus:mapui:ring-blue-400',
               mode === m
                 ? 'mapui:bg-blue-500 mapui:text-white'
                 : 'mapui:bg-white mapui:text-slate-700 hover:mapui:bg-slate-50',
             ].join(' ')}
           >
-            {m === 'match' ? 'Categorical' : 'Gradient'}
+            {label}
           </button>
         ))}
       </div>
@@ -388,6 +424,32 @@ export function DataDrivenColorEditor({
                 </label>
               </>
             )}
+          </div>
+        </>
+      )}
+
+      {mode === 'groups' && (
+        <>
+          <select
+            value={groupsProperty}
+            onChange={(e) => handleGroupsPropertyChange(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">Select a property…</option>
+            {stringProperties.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.title ?? p.name}
+              </option>
+            ))}
+          </select>
+          <CategoryGroupEditor
+            groups={groups}
+            onGroupsChange={handleGroupsChange}
+            availableValues={[]}
+          />
+          <div className="mapui:flex mapui:items-center mapui:gap-2">
+            <span className="mapui:text-xs mapui:text-slate-500 mapui:shrink-0">Fallback:</span>
+            <ColorPicker value={groupsFallback} onChange={handleGroupsFallbackChange} label="Fallback color" />
           </div>
         </>
       )}
