@@ -34,4 +34,7 @@ export {
   MapConfigSchema,
   validateMapConfig,
   safeValidateMapConfig,
+  DraftMapConfigSchema,
+  safeValidateDraftMapConfig,
 } from './config';
+export type { DraftMapConfig } from './config';

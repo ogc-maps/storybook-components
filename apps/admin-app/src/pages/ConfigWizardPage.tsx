@@ -157,7 +157,6 @@ export function ConfigWizardPage() {
   const [justSaved, setJustSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showPreview, setShowPreview] = useState(true);
   const [previewLayout, setPreviewLayout] = useState<'horizontal' | 'vertical'>('vertical');
 
@@ -250,10 +249,13 @@ export function ConfigWizardPage() {
 
   const assembledConfig: MapConfig = { sources, layers, ...(imageryLayers.length > 0 ? { imageryLayers } : {}), basemaps, sprites: sprites.length > 0 ? sprites : undefined, ui: effectiveUIConfig, initialView, ...(hasBranding && { branding }), ...(globalSearch ? { globalSearch } : {}), ...(info ? { info } : {}) };
 
-  const isConfigValid = useMemo(() => {
-    if (!name) return false;
-    return safeValidateMapConfig(assembledConfig).success;
-  }, [name, assembledConfig]);
+  const isConfigValid = !!name;
+
+  const configValidationWarnings = useMemo(() => {
+    const result = safeValidateMapConfig(assembledConfig);
+    if (result.success) return [];
+    return result.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`);
+  }, [assembledConfig]);
 
   // Clear "Saved" indicator when config changes
   useEffect(() => { setJustSaved(false); }, [assembledConfig, name, description]);
@@ -298,21 +300,12 @@ export function ConfigWizardPage() {
     setInfo(next.info);
     setInitialView(next.initialView ?? DEFAULT_VIEW);
     setBranding(next.branding ?? {});
-    setValidationErrors([]);
   };
 
   const handleSave = async () => {
     setSaving(true);
     setJustSaved(false);
     setError(null);
-    setValidationErrors([]);
-
-    const validation = safeValidateMapConfig(assembledConfig);
-    if (!validation.success) {
-      setValidationErrors(validation.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`));
-      setSaving(false);
-      return;
-    }
 
     try {
       const body = { name, description, config: assembledConfig };
@@ -1009,12 +1002,12 @@ export function ConfigWizardPage() {
               </p>
               <JsonConfigEditor value={assembledConfig} onApply={handleReplaceConfig} />
             </CollapsibleSection>
-            {validationErrors.length > 0 && (
-              <div className="mapui:rounded mapui:bg-red-50 mapui:border mapui:border-red-200 mapui:p-4">
-                <p className="mapui:text-sm mapui:font-medium mapui:text-red-800 mapui:mb-2">Config validation failed:</p>
+            {configValidationWarnings.length > 0 && (
+              <div className="mapui:rounded mapui:bg-amber-50 mapui:border mapui:border-amber-200 mapui:p-4">
+                <p className="mapui:text-sm mapui:font-medium mapui:text-amber-800 mapui:mb-2">Draft config — missing fields (save is still allowed):</p>
                 <ul className="mapui:list-disc mapui:list-inside mapui:space-y-1">
-                  {validationErrors.map((e, i) => (
-                    <li key={i} className="mapui:text-sm mapui:text-red-700">{e}</li>
+                  {configValidationWarnings.map((e, i) => (
+                    <li key={i} className="mapui:text-sm mapui:text-amber-700">{e}</li>
                   ))}
                 </ul>
               </div>
@@ -1075,13 +1068,7 @@ export function ConfigWizardPage() {
           <button
             onClick={handleSave}
             disabled={saving || justSaved || !isConfigValid}
-            title={
-              !name
-                ? 'Enter a name in the Metadata step to save.'
-                : !isConfigValid
-                ? 'Config has validation errors — see the Review step.'
-                : undefined
-            }
+            title={!name ? 'Enter a name in the Metadata step to save.' : undefined}
             className={`mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:disabled:cursor-not-allowed ${
               justSaved
                 ? 'mapui:bg-slate-400 mapui:text-white'

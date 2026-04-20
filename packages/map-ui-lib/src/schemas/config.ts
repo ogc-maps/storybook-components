@@ -757,3 +757,17 @@ export function validateMapConfig(config: unknown) {
 export function safeValidateMapConfig(config: unknown) {
   return MapConfigSchema.safeParse(config);
 }
+
+// --- Draft (partial) Config Schema ---
+
+/** Relaxed version of MapConfigSchema for saving incomplete/draft configs. */
+export const DraftMapConfigSchema = MapConfigSchema.extend({
+  sources: z.array(OgcApiSourceSchema).optional().default([]),
+  basemaps: z.array(BasemapConfigSchema).optional().default([]),
+  initialView: ViewConfigSchema.optional(),
+});
+export type DraftMapConfig = z.infer<typeof DraftMapConfigSchema>;
+
+export function safeValidateDraftMapConfig(config: unknown) {
+  return DraftMapConfigSchema.safeParse(config);
+}
