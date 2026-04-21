@@ -3,7 +3,8 @@ import type { LayerConfig, OgcApiSource, AvailableProperty, StyleConfig, Cql2Fil
 import { slugify } from '../../utils/slugify';
 import { FormField } from '../admin/FormField';
 import { CollapsibleSection } from '../admin/CollapsibleSection';
-import { StyleEditor, defaultFill, defaultCircle } from '../StyleEditor/StyleEditor';
+import { defaultFill, defaultCircle } from '../StyleEditor/StyleEditor';
+import { StyleCard } from '../StyleEditor/StyleCard';
 import { LegendEditor } from '../LegendEditor/LegendEditor';
 import { SearchFieldList } from '../SearchFieldEditor/SearchFieldList';
 import { PropertyDisplayEditor } from '../PropertyDisplayEditor/PropertyDisplayEditor';
@@ -341,25 +342,27 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
         </>
       )}
 
-      {showSection('style') && <CollapsibleSection title="Style">
-        <div className="mapui:flex mapui:flex-col mapui:gap-4">
-          {(value.styles ?? [defaultFill]).map((style, i) => (
-            <div key={i} className="mapui:flex mapui:flex-col mapui:gap-2">
-              {style.geometryFilter && style.geometryFilter.length > 0 && (
-                <div className="mapui:flex mapui:flex-wrap mapui:gap-1">
-                  {style.geometryFilter.map((g) => (
-                    <span
-                      key={g}
-                      className="mapui:rounded mapui:bg-indigo-100 mapui:px-1.5 mapui:py-0.5 mapui:text-[10px] mapui:font-medium mapui:text-indigo-700"
-                    >
-                      {g}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <StyleEditor
-                value={style}
+      {showSection('style') && (
+        <>
+          <div className="mapui:flex mapui:items-center mapui:gap-2 mapui:pt-1">
+            <span className="mapui:text-xs mapui:font-semibold mapui:uppercase mapui:tracking-wide mapui:text-slate-500">
+              Styles
+            </span>
+            <div className="mapui:flex-1 mapui:border-t mapui:border-slate-200" />
+          </div>
+          <div className="mapui:flex mapui:flex-col mapui:gap-2">
+            {(value.styles ?? [defaultFill]).map((style, i) => (
+              <StyleCard
+                key={i}
+                style={style}
+                index={i}
                 onChange={(s) => update({ styles: replaceAt(value.styles, i, s) })}
+                onRemove={
+                  (value.styles?.length ?? 0) > 1
+                    ? () => update({ styles: removeAt(value.styles, i) })
+                    : undefined
+                }
+                defaultOpen={i === 0}
                 suggestedTypes={suitableStyleTypes}
                 availableIcons={availableIcons}
                 availableProperties={availableProperties}
@@ -369,26 +372,17 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
                     : undefined
                 }
               />
-              {(value.styles?.length ?? 0) > 0 && (
-                <button
-                  type="button"
-                  onClick={() => update({ styles: removeAt(value.styles, i) })}
-                  className="mapui:cursor-pointer mapui:self-start mapui:rounded mapui:border mapui:border-red-200 mapui:bg-white mapui:px-2 mapui:py-1 mapui:text-xs mapui:text-red-600 hover:mapui:bg-red-50"
-                >
-                  Remove style
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => update({ styles: [...(value.styles ?? [defaultFill]), defaultCircle] })}
-            className="mapui:cursor-pointer mapui:self-start mapui:rounded mapui:border mapui:border-slate-300 mapui:bg-white mapui:px-2 mapui:py-1 mapui:text-xs mapui:text-slate-700 hover:mapui:bg-slate-50"
-          >
-            + Add style
-          </button>
-        </div>
-      </CollapsibleSection>}
+            ))}
+            <button
+              type="button"
+              onClick={() => update({ styles: [...(value.styles ?? [defaultFill]), defaultCircle] })}
+              className="mapui:cursor-pointer mapui:self-start mapui:rounded mapui:border mapui:border-slate-300 mapui:bg-white mapui:px-2 mapui:py-1 mapui:text-xs mapui:text-slate-700 hover:mapui:bg-slate-50"
+            >
+              + Add style
+            </button>
+          </div>
+        </>
+      )}
 
       {showSection('legend') && (
         <CollapsibleSection title="Legend">
