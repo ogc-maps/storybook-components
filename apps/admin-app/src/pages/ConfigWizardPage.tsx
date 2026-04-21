@@ -95,6 +95,32 @@ const DEFAULT_UI_CONFIG: UIConfig = {
   sideMenuToggleCorner: 'top-right',
 };
 
+/**
+ * When loading a saved config, we don't want to blindly treat every `false`
+ * in the saved UI as an explicit user override — most are just the all-false
+ * default. Instead, compute what the auto-suggestions would produce for the
+ * loaded data and only keep values that differ from the suggestion as explicit
+ * overrides. This lets the suggestion system correctly turn on controls (e.g.
+ * basemap switcher) even on configs saved before those suggestions existed.
+ */
+function computeUiOverridesFromSaved(
+  savedUI: Partial<UIConfig>,
+  layers: LayerConfig[],
+  basemaps: BasemapConfig[],
+  imageryLayers: ImageryLayerConfig[],
+): Partial<UIConfig> {
+  const suggested = computeSuggestedUI(layers, basemaps, imageryLayers) as Record<string, unknown>;
+  const overrides: Partial<UIConfig> = {};
+  for (const key of Object.keys(savedUI) as (keyof UIConfig)[]) {
+    const savedVal = (savedUI as Record<string, unknown>)[key];
+    const suggestedVal = suggested[key] ?? false;
+    if (savedVal !== suggestedVal) {
+      (overrides as Record<string, unknown>)[key] = savedVal;
+    }
+  }
+  return overrides;
+}
+
 /** Derive which UI controls should be enabled based on current config state. */
 function computeSuggestedUI(
   layers: LayerConfig[],
@@ -275,7 +301,12 @@ export function ConfigWizardPage() {
           setImageryLayers(data.config.imageryLayers ?? []);
           setBasemaps(data.config.basemaps ?? []);
           setSprites(data.config.sprites ?? []);
-          setUiOverrides(data.config.ui ?? DEFAULT_UI_CONFIG);
+          setUiOverrides(computeUiOverridesFromSaved(
+            data.config.ui ?? {},
+            data.config.layers ?? [],
+            data.config.basemaps ?? [],
+            data.config.imageryLayers ?? [],
+          ));
           setGlobalSearch(data.config.globalSearch);
           setInfo(data.config.info);
           setInitialView(data.config.initialView ?? DEFAULT_VIEW);
@@ -295,7 +326,12 @@ export function ConfigWizardPage() {
     setImageryLayers(next.imageryLayers ?? []);
     setBasemaps(next.basemaps ?? []);
     setSprites(next.sprites ?? []);
-    setUiOverrides(next.ui ?? {});
+    setUiOverrides(computeUiOverridesFromSaved(
+      next.ui ?? {},
+      next.layers ?? [],
+      next.basemaps ?? [],
+      next.imageryLayers ?? [],
+    ));
     setGlobalSearch(next.globalSearch);
     setInfo(next.info);
     setInitialView(next.initialView ?? DEFAULT_VIEW);
