@@ -10,7 +10,6 @@ import { pool, initDb } from './db.js';
 import { inspectSource, normalizeUrl } from './inspect.js';
 import { detectTileSourceType, appendAuth, authHeaders } from '@ogc-maps/storybook-components/hooks';
 import type { SourceAuth } from '@ogc-maps/storybook-components/hooks';
-import { safeValidateMapConfig } from '@ogc-maps/storybook-components/schemas';
 
 // Shared shape for source create/update request bodies
 interface SourceRequestBody {
@@ -331,14 +330,6 @@ app.post('/api/configs', requireAuth, async (req, res) => {
     return;
   }
 
-  if (config) {
-    const validation = safeValidateMapConfig(config);
-    if (!validation.success) {
-      res.status(400).json({ error: 'Invalid config', details: validation.error.issues });
-      return;
-    }
-  }
-
   try {
     const result = await pool.query(
       'INSERT INTO map_admin.map_configs (name, description, config) VALUES ($1, $2, $3) RETURNING *',
@@ -362,14 +353,6 @@ app.put('/api/configs/:id', requireAuth, async (req, res) => {
   if (nameError) {
     res.status(400).json({ error: nameError });
     return;
-  }
-
-  if (config) {
-    const validation = safeValidateMapConfig(config);
-    if (!validation.success) {
-      res.status(400).json({ error: 'Invalid config', details: validation.error.issues });
-      return;
-    }
   }
 
   try {
