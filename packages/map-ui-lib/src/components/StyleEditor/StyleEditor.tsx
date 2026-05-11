@@ -241,18 +241,18 @@ export function StyleEditor({ value, onChange, suggestedType, suggestedTypes, av
         <StylePreview style={value} />
       </div>
 
-      {layoutGroupNames.length > 0 && (
+      {paintGroupNames.length > 0 && (
         <div className="mapui:flex mapui:flex-col mapui:gap-2">
           <p className="mapui:m-0 mapui:text-xs mapui:font-medium mapui:uppercase mapui:tracking-wide mapui:text-slate-500">
-            Layout
+            Appearance
           </p>
-          {layoutGroupNames.map((groupName, i) => (
+          {paintGroupNames.map((groupName, i) => (
             <PropertyGroup
               key={groupName}
               title={groupName}
-              properties={layoutGroups[groupName]}
-              values={layoutValues}
-              onChange={handleLayoutChange}
+              properties={paintGroups[groupName]}
+              values={paintValues}
+              onChange={handlePaintChange}
               defaultOpen={i === 0}
               availableIcons={availableIcons}
               availableProperties={availableProperties}
@@ -264,18 +264,18 @@ export function StyleEditor({ value, onChange, suggestedType, suggestedTypes, av
         </div>
       )}
 
-      {paintGroupNames.length > 0 && (
+      {layoutGroupNames.length > 0 && (
         <div className="mapui:flex mapui:flex-col mapui:gap-2">
           <p className="mapui:m-0 mapui:text-xs mapui:font-medium mapui:uppercase mapui:tracking-wide mapui:text-slate-500">
-            Paint
+            Layout
           </p>
-          {paintGroupNames.map((groupName) => (
+          {layoutGroupNames.map((groupName) => (
             <PropertyGroup
               key={groupName}
               title={groupName}
-              properties={paintGroups[groupName]}
-              values={paintValues}
-              onChange={handlePaintChange}
+              properties={layoutGroups[groupName]}
+              values={layoutValues}
+              onChange={handleLayoutChange}
               defaultOpen={false}
               availableIcons={availableIcons}
               availableProperties={availableProperties}
