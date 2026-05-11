@@ -256,8 +256,8 @@ importers:
         specifier: ^5.1.1
         version: 5.1.1(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       '@storybook/addon-docs':
-        specifier: ^10.3.5
-        version: 10.3.5(@types/react@18.3.28)(esbuild@0.27.7)(rollup@4.57.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0))
+        specifier: ^10.3.6
+        version: 10.3.6(@types/react@18.3.28)(esbuild@0.27.7)(rollup@4.57.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0))
       '@storybook/addon-links':
         specifier: ^10.3.3
         version: 10.3.3(react@18.3.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
@@ -1399,10 +1399,10 @@ packages:
   '@standard-schema/spec@1.0.0':
     resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
 
-  '@storybook/addon-docs@10.3.5':
-    resolution: {integrity: sha512-WuHbxia/o5TX4Rg/IFD0641K5qId/Nk0dxhmAUNoFs5L0+yfZUwh65XOBbzXqrkYmYmcVID4v7cgDRmzstQNkA==}
+  '@storybook/addon-docs@10.3.6':
+    resolution: {integrity: sha512-TvIdADVPtauxW0LzXIpIv7X6GxwetorhyNh+6+7MHC27XSBCWVxxRUwL63YeLlHTuXsIk0quG3b1xgwVRzWOJA==}
     peerDependencies:
-      storybook: ^10.3.5
+      storybook: ^10.3.6
 
   '@storybook/addon-links@10.3.3':
     resolution: {integrity: sha512-tazBHlB+YbU62bde5DWsq0lnxZjcAsPB3YRUpN2hSMfAySsudRingyWrgu5KeOxXhJvKJj0ohjQvGcMx/wgQUA==}
@@ -1437,11 +1437,35 @@ packages:
       webpack:
         optional: true
 
+  '@storybook/csf-plugin@10.3.6':
+    resolution: {integrity: sha512-9kBf7VRdRqTSIYo+rPtVn5yjYYyK8kP2QhEYx3oiXvfwy4RexmbJnhk/tXa/lNiTqukA1TqaWQ2+5MqF4fu6YQ==}
+    peerDependencies:
+      esbuild: '*'
+      rollup: '*'
+      storybook: ^10.3.6
+      vite: '*'
+      webpack: '*'
+    peerDependenciesMeta:
+      esbuild:
+        optional: true
+      rollup:
+        optional: true
+      vite:
+        optional: true
+      webpack:
+        optional: true
+
   '@storybook/global@5.0.0':
     resolution: {integrity: sha512-FcOqPAXACP0I3oJ/ws6/rrPT9WGhu915Cg8D02a9YxLo0DE9zI+a9A5gRGvmQ09fiWPukqI8ZAEoQEdWUKMQdQ==}
 
   '@storybook/icons@2.0.1':
     resolution: {integrity: sha512-/smVjw88yK3CKsiuR71vNgWQ9+NuY2L+e8X7IMrFjexjm6ZR8ULrV2DRkTA61aV6ryefslzHEGDInGpnNeIocg==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  '@storybook/icons@2.0.2':
+    resolution: {integrity: sha512-KZBCpXsshAIjczYNXR/rlxEtCUX/eAbpFNwKi8bcOomrLA4t/SyPz5RF+lVPO2oZBUE4sAkt43mfJUevQDSEEw==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -1452,6 +1476,13 @@ packages:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       storybook: ^10.3.5
+
+  '@storybook/react-dom-shim@10.3.6':
+    resolution: {integrity: sha512-/Tu1gPu+Fw+zOnAGmxRmOD30FX3a04LxcTAKflEtdpmtIMVR5bA3qpjy+f5YhoyDCecbXyKmL1OeIU2FIIZHqQ==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      storybook: ^10.3.6
 
   '@storybook/react-vite@10.3.5':
     resolution: {integrity: sha512-UB5sJHeh26bfd8sNMx2YPGYRYmErIdTRaLOT28m4bykQIa1l9IgVktsYg/geW7KsJU0lXd3oTbnUjLD+enpi3w==}
@@ -5811,12 +5842,12 @@ snapshots:
 
   '@standard-schema/spec@1.0.0': {}
 
-  '@storybook/addon-docs@10.3.5(@types/react@18.3.28)(esbuild@0.27.7)(rollup@4.57.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0))':
+  '@storybook/addon-docs@10.3.6(@types/react@18.3.28)(esbuild@0.27.7)(rollup@4.57.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0))':
     dependencies:
       '@mdx-js/react': 3.1.1(@types/react@18.3.28)(react@18.3.1)
-      '@storybook/csf-plugin': 10.3.5(esbuild@0.27.7)(rollup@4.57.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0))
-      '@storybook/icons': 2.0.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@storybook/react-dom-shim': 10.3.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
+      '@storybook/csf-plugin': 10.3.6(esbuild@0.27.7)(rollup@4.57.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0))
+      '@storybook/icons': 2.0.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@storybook/react-dom-shim': 10.3.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       storybook: 10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -5855,6 +5886,15 @@ snapshots:
       rollup: 4.57.1
       vite: 6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0)
 
+  '@storybook/csf-plugin@10.3.6(esbuild@0.27.7)(rollup@4.57.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0))':
+    dependencies:
+      storybook: 10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      unplugin: 2.3.11
+    optionalDependencies:
+      esbuild: 0.27.7
+      rollup: 4.57.1
+      vite: 6.4.1(@types/node@25.5.0)(jiti@2.7.0)(lightningcss@1.32.0)
+
   '@storybook/global@5.0.0': {}
 
   '@storybook/icons@2.0.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
@@ -5862,7 +5902,18 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
+  '@storybook/icons@2.0.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
   '@storybook/react-dom-shim@10.3.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
+    dependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      storybook: 10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+
+  '@storybook/react-dom-shim@10.3.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.3.5(@testing-library/dom@10.4.0)(prettier@2.8.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
