@@ -27,7 +27,7 @@
     "express": "^4.18.2",
     "express-session": "^1.18.0",
     "flatgeobuf": "^3.32.0",
-    "maplibre-gl": "^4.7.1",
+    "maplibre-gl": "^5.24.0",
     "multer": "^2.0.1",
     "pg": "^8.20.0",
     "react": "^18.3.1",
