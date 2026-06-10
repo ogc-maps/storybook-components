@@ -4,6 +4,38 @@ import type { SearchFilterValue, SearchFilterValues } from '@ogc-maps/storybook-
 import { useMapStore } from '../stores/mapStore';
 import { useMapUrlState } from './useMapUrlState';
 
+// Two-level structural equality for activeFilters.
+// JSON.stringify is order-sensitive: two semantically identical filter objects with
+// different key insertion order (e.g. after a URL round-trip) would compare unequal.
+// SearchFilterValue leaf types are either primitives or shallow objects ({start,end} etc.),
+// so a two-level structural comparison is both correct and cheap.
+function filterValueEqual(a: SearchFilterValue, b: SearchFilterValue): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  if (typeof a !== 'object' || typeof b !== 'object') return false;
+  const aObj = a as Record<string, unknown>;
+  const bObj = b as Record<string, unknown>;
+  const aKeys = Object.keys(aObj);
+  return aKeys.length === Object.keys(bObj).length &&
+    aKeys.every(k => aObj[k] === bObj[k]);
+}
+
+function activeFiltersEqual(
+  a: Record<string, SearchFilterValues>,
+  b: Record<string, SearchFilterValues>,
+): boolean {
+  const aKeys = Object.keys(a);
+  if (aKeys.length !== Object.keys(b).length) return false;
+  return aKeys.every(layerId => {
+    if (!(layerId in b)) return false;
+    const aFields = a[layerId];
+    const bFields = b[layerId];
+    const fieldKeys = Object.keys(aFields);
+    if (fieldKeys.length !== Object.keys(bFields).length) return false;
+    return fieldKeys.every(k => filterValueEqual(aFields[k], bFields[k]));
+  });
+}
+
 /**
  * Bidirectional sync between Zustand stores and URL parameters.
  *
@@ -154,12 +186,7 @@ export function useMapSync() {
   useEffect(() => {
     if (isSyncingFromUrl.current) return;
 
-    // We only want to push to history if filters actually changed
-    // Simple deep equality check or JSON stringify comp could work for light usage
-    const filtersJson = JSON.stringify(activeFilters);
-    const prevFiltersJson = JSON.stringify(prevFiltersRef.current);
-
-    if (filtersJson !== prevFiltersJson) {
+    if (!activeFiltersEqual(activeFilters, prevFiltersRef.current)) {
       // Filter out empty objects
       const cleanedFilters: Record<string, Record<string, NonNullable<SearchFilterValue>>> = {};
       for (const [layerId, filters] of Object.entries(activeFilters)) {
