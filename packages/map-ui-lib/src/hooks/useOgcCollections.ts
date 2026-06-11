@@ -24,11 +24,12 @@ export function useOgcCollections(baseUrl: string | null, auth?: SourceAuth): Us
   useEffect(() => {
     if (!baseUrl) return;
 
+    const controller = new AbortController();
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    fetchCollections(baseUrl, auth)
+    fetchCollections(baseUrl, auth, controller.signal)
       .then((data) => {
         if (!cancelled) {
           setCollections(data);
@@ -47,6 +48,7 @@ export function useOgcCollections(baseUrl: string | null, auth?: SourceAuth): Us
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl, authKey]);

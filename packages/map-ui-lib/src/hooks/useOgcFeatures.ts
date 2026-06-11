@@ -40,13 +40,14 @@ export function useOgcFeatures(
   useEffect(() => {
     if (!baseUrl || !collection) return;
 
+    const controller = new AbortController();
     let cancelled = false;
     setLoading(true);
     setError(null);
 
     const opts: FetchFeaturesOptions = JSON.parse(optionsKey);
 
-    fetchFeatures(baseUrl, collection, opts, auth)
+    fetchFeatures(baseUrl, collection, opts, auth, controller.signal)
       .then((data: OgcFeatureCollection) => {
         if (!cancelled) {
           setFeatures(data.features);
@@ -77,6 +78,7 @@ export function useOgcFeatures(
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl, collection, optionsKey, authKey]);

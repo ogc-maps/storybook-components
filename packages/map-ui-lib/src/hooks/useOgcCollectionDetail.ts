@@ -24,11 +24,12 @@ export function useOgcCollectionDetail(
   useEffect(() => {
     if (!baseUrl || !collectionId) return;
 
+    const controller = new AbortController();
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    fetchCollectionDetail(baseUrl, collectionId)
+    fetchCollectionDetail(baseUrl, collectionId, undefined, controller.signal)
       .then((data) => {
         if (!cancelled) {
           setCollection(data);
@@ -47,6 +48,7 @@ export function useOgcCollectionDetail(
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [baseUrl, collectionId]);
 
