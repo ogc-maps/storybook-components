@@ -1434,7 +1434,7 @@ app.get('/api/basemaps/:id/tiles/:z/:x/:y', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=300');
 
     if (upstream.body) {
-      // @ts-expect-error Node 18+ ReadableStream is compatible with Readable.fromWeb
+      // @ts-expect-error DOM ReadableStream<Uint8Array>.pipeThrough signature diverges from Node's ReadableStream type — runtime-compatible
       const stream = Readable.fromWeb(upstream.body);
       stream.on('error', (err: Error) => {
         console.error('Basemap tile proxy stream error:', err);
@@ -1667,7 +1667,7 @@ app.all('/api/proxy/:sourceId/*', async (req, res) => {
     }
 
     if (upstream.body) {
-      // @ts-expect-error Node 18+ ReadableStream is compatible with Readable.fromWeb
+      // @ts-expect-error DOM ReadableStream<Uint8Array>.pipeThrough signature diverges from Node's ReadableStream type — runtime-compatible
       const stream = Readable.fromWeb(upstream.body);
       stream.on('error', (err: Error) => {
         console.error('Proxy stream error:', err);
