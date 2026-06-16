@@ -12,5 +12,8 @@ export interface SelectedFeature {
 /** Build a unique key for a selected feature for deduplication. */
 export function selectedFeatureKey(feature: SelectedFeature): string {
   if (feature.id != null) return `${feature.layerId}:${feature.id}`;
-  return `${feature.layerId}:${JSON.stringify(feature.properties)}`;
+  // Sort keys so the key is stable regardless of property insertion order.
+  const sorted: Record<string, unknown> = {};
+  for (const k of Object.keys(feature.properties).sort()) sorted[k] = feature.properties[k];
+  return `${feature.layerId}:${JSON.stringify(sorted)}`;
 }
