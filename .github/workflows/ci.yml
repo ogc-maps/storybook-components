@@ -24,10 +24,12 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm test
+      # Run lib tests with coverage so vitest enforces the threshold values in vitest.config.ts
+      - run: pnpm test:coverage
+        working-directory: packages/map-ui-lib
       # App + sidecar suites aren't part of `pnpm test` (lib only) — run them here.
       - name: admin-app tests
-        run: cd apps/admin-app && pnpm exec vitest run
+        run: cd apps/admin-app && pnpm exec vitest run --coverage
       - name: ingest-service unit tests
         run: pnpm --filter ingest-service test
 
