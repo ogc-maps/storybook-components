@@ -1,6 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { SelectionMode, SelectedFeature } from '../utils/selection';
-import { selectedFeatureKey } from '../utils/selection';
+import {
+  selectedFeatureKey,
+  mergeUniqueFeatures,
+  buildHighlightFeatureCollection,
+} from '../utils/selection';
 
 export interface UseSelectionResult {
   mode: SelectionMode | null;
@@ -14,24 +18,12 @@ export interface UseSelectionResult {
   clearFeatures: () => void;
 }
 
-const MAX_SELECTED = 1000;
-
 export function useSelection(): UseSelectionResult {
   const [mode, setModeState] = useState<SelectionMode | null>(null);
   const [activeLayerId, setActiveLayerIdState] = useState<string | null>(null);
   const [features, setFeatures] = useState<SelectedFeature[]>([]);
 
-  const highlightData = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (features.length === 0) return null;
-    return {
-      type: 'FeatureCollection',
-      features: features.map((f) => ({
-        type: 'Feature' as const,
-        properties: f.properties,
-        geometry: f.geometry as unknown as GeoJSON.Geometry,
-      })),
-    };
-  }, [features]);
+  const highlightData = useMemo(() => buildHighlightFeatureCollection(features), [features]);
 
   const setMode = useCallback((newMode: SelectionMode | null) => {
     setModeState(newMode);
@@ -43,12 +35,7 @@ export function useSelection(): UseSelectionResult {
   }, []);
 
   const addFeatures = useCallback((newFeatures: SelectedFeature[]) => {
-    setFeatures((prev) => {
-      const existingKeys = new Set(prev.map(selectedFeatureKey));
-      const unique = newFeatures.filter((f) => !existingKeys.has(selectedFeatureKey(f)));
-      const combined = [...prev, ...unique];
-      return combined.length > MAX_SELECTED ? combined.slice(0, MAX_SELECTED) : combined;
-    });
+    setFeatures((prev) => mergeUniqueFeatures(prev, newFeatures));
   }, []);
 
   const removeFeature = useCallback((key: string) => {
