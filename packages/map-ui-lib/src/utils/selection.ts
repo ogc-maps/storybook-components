@@ -9,8 +9,14 @@ export interface SelectedFeature {
   geometry: Record<string, unknown>;
 }
 
+function stableSerialize(obj: Record<string, unknown>): string {
+  const sorted: Record<string, unknown> = {};
+  for (const k of Object.keys(obj).sort()) sorted[k] = obj[k];
+  return JSON.stringify(sorted);
+}
+
 /** Build a unique key for a selected feature for deduplication. */
 export function selectedFeatureKey(feature: SelectedFeature): string {
   if (feature.id != null) return `${feature.layerId}:${feature.id}`;
-  return `${feature.layerId}:${JSON.stringify(feature.properties)}`;
+  return `${feature.layerId}:${stableSerialize(feature.properties)}`;
 }
