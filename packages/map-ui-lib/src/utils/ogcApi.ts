@@ -98,7 +98,11 @@ export interface FetchFeaturesOptions {
   offset?: number;
   properties?: string[];
   datetime?: string;
-  /** @deprecated Use cql2Filter instead. Simple key-value equality filters. */
+  /**
+   * @deprecated Use `cql2Filter` instead. This field will be removed in the
+   * next major release. Build an equality expression with the `eq` / `and`
+   * helpers from `./cql2` and pass it as `cql2Filter`.
+   */
   filter?: Record<string, string | number>;
   /** CQL2 JSON filter expression. When provided, takes precedence over filter. */
   cql2Filter?: CQL2Expression;
