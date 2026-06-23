@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import { Map, Source, Layer, Marker, AttributionControl, type MapRef } from 'react-map-gl/maplibre';
-import { useOgcFeatures, useExport } from '@ogc-maps/storybook-components/hooks';
+import { useOgcFeatures, useExport, useHeaderAuthTransformRequest } from '@ogc-maps/storybook-components/hooks';
 import {
   getCql2FilteredVectorTileUrl,
   getImageryTileUrl,
@@ -30,7 +30,6 @@ import {
   prefetchKey,
   type GlobalSearchContext,
   buildSourceUrlMap,
-  buildHeaderAuthTransformRequest,
   isOgcApiSource,
 } from '@ogc-maps/storybook-components/utils';
 import type { CQL2Expression } from '@ogc-maps/storybook-components/utils';
@@ -559,7 +558,7 @@ export function MapPreview({
   }, [basemaps]);
 
   const sourceUrlMap = useMemo(() => buildSourceUrlMap(sources), [sources]);
-  const transformRequest = useMemo(() => buildHeaderAuthTransformRequest(sources), [sources]);
+  const transformRequest = useHeaderAuthTransformRequest(sources);
 
   // Cleanup debounce timers on unmount
   useEffect(() => {

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { MapSource } from '../../types';
-import { buildSourceUrlMap, buildHeaderAuthTransformRequest } from '../sourceUrlMap';
+import {
+  buildSourceUrlMap,
+  buildHeaderAuthTransformRequest,
+  createLatestTransformRequest,
+  type TransformRequestFn,
+} from '../sourceUrlMap';
 
 const ogc: MapSource = {
   id: 'ogc-1',
@@ -89,5 +94,35 @@ describe('buildHeaderAuthTransformRequest', () => {
   it('skips WMTS sources with malformed capabilitiesUrl rather than throwing', () => {
     const broken = { ...wmts, capabilitiesUrl: 'not a url', auth: { type: 'header' as const, name: 'X', value: 'Y' } } as MapSource;
     expect(() => buildHeaderAuthTransformRequest([broken])).not.toThrow();
+  });
+});
+
+describe('createLatestTransformRequest', () => {
+  it('passes the request through unchanged while the delegate is undefined', () => {
+    const stable = createLatestTransformRequest(() => undefined);
+    expect(stable('https://example.com/tile.png')).toEqual({ url: 'https://example.com/tile.png' });
+  });
+
+  it('keeps a stable identity but injects headers once a header-auth source loads', () => {
+    // Mirrors the real bug: the map captures one stable transformRequest at
+    // construction (delegate still undefined), then a header-auth WMTS source
+    // arrives later and the SAME function must start injecting the header.
+    let delegate: TransformRequestFn | undefined;
+    const stable = createLatestTransformRequest(() => delegate);
+    const tileUrl = 'https://gibs.earthdata.nasa.gov/wmts/best/tile.jpg';
+
+    // Before sources load: no header.
+    expect(stable(tileUrl)).toEqual({ url: tileUrl });
+
+    // Source loads after the map mounted.
+    delegate = buildHeaderAuthTransformRequest([
+      { ...wmts, auth: { type: 'header', name: 'Authorization', value: 'Basic abc' } },
+    ]);
+
+    // Same stable function now injects the header.
+    expect(stable(tileUrl)).toEqual({
+      url: tileUrl,
+      headers: { Authorization: 'Basic abc' },
+    });
   });
 });

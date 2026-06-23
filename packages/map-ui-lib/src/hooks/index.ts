@@ -9,6 +9,7 @@ export { DEFAULT_EXPORT_FORMATS } from '../utils/exportFormats';
 export { useOgcQueryables, type UseOgcQueryablesResult } from './useOgcQueryables';
 export { useOgcCollectionDetail, type UseOgcCollectionDetailResult } from './useOgcCollectionDetail';
 export { useWmtsCapabilities, type UseWmtsCapabilitiesResult } from './useWmtsCapabilities';
+export { useHeaderAuthTransformRequest } from './useHeaderAuthTransformRequest';
 export { useMeasure, type UseMeasureResult } from './useMeasure';
 export { useSelection, type UseSelectionResult } from './useSelection';
 export {
