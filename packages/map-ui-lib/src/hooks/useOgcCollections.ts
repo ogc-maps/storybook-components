@@ -24,29 +24,24 @@ export function useOgcCollections(baseUrl: string | null, auth?: SourceAuth): Us
   useEffect(() => {
     if (!baseUrl) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
-    fetchCollections(baseUrl, auth)
+    fetchCollections(baseUrl, auth, controller.signal)
       .then((data) => {
-        if (!cancelled) {
-          setCollections(data);
-        }
+        setCollections(data);
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err : new Error(String(err)));
-        }
+        if ((err as { name?: string }).name === 'AbortError') return;
+        setError(err instanceof Error ? err : new Error(String(err)));
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setLoading(false);
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl, authKey]);

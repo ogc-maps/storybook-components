@@ -24,29 +24,24 @@ export function useOgcQueryables(
   useEffect(() => {
     if (!baseUrl || !collectionId) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
-    fetchQueryables(baseUrl, collectionId)
+    fetchQueryables(baseUrl, collectionId, undefined, controller.signal)
       .then((data) => {
-        if (!cancelled) {
-          setQueryables(data);
-        }
+        setQueryables(data);
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err : new Error(String(err)));
-        }
+        if ((err as { name?: string }).name === 'AbortError') return;
+        setError(err instanceof Error ? err : new Error(String(err)));
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setLoading(false);
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [baseUrl, collectionId]);
 
