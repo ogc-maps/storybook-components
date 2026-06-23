@@ -1,4 +1,4 @@
-import type { MapSource, OgcApiSource, SourceAuth } from '../types';
+import type { MapSource, OgcApiSource, WmtsSource, SourceAuth } from '../types';
 import { appendAuth, authHeaders } from './ogcApi';
 
 /**
@@ -8,6 +8,25 @@ import { appendAuth, authHeaders } from './ogcApi';
  */
 export function isOgcApiSource(source: MapSource): source is OgcApiSource {
   return !('sourceType' in source && source.sourceType === 'wmts');
+}
+
+/**
+ * Type guard: true if a `MapSource` is a WMTS source. The inverse of
+ * `isOgcApiSource`, but narrows to `WmtsSource` so `.capabilitiesUrl` / `.layer`
+ * are readable.
+ */
+export function isWmtsSource(source: MapSource): source is WmtsSource {
+  return 'sourceType' in source && source.sourceType === 'wmts';
+}
+
+/**
+ * True if a source plays the *imagery* role — i.e. it can back an imagery layer.
+ * WMTS is intrinsically tiled raster imagery; OGC API sources opt in via
+ * `type: 'imagery'`. Use this (not `isOgcApiSource`) when filtering the source
+ * list that feeds the imagery layer pickers.
+ */
+export function isImagerySource(source: MapSource): boolean {
+  return isWmtsSource(source) || (isOgcApiSource(source) && source.type === 'imagery');
 }
 
 export interface WmtsLayer {

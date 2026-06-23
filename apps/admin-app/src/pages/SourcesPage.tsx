@@ -5,14 +5,16 @@ import { detectTileSourceType, appendAuth, authHeaders } from '@ogc-maps/storybo
 import { SourceMetadataPanel } from '../components/SourceMetadataPanel';
 import type { InspectionResult } from '../components/SourceMetadataPanel';
 import { inspectSourceClientSide } from '../utils/inspectSource';
+import { savedSourceToWmts, savedSourceIsImagery } from '../utils/wmtsSource';
 
-type SourceTab = 'features' | 'imagery' | 'basemap' | 'wmts';
+// WMTS is folded into the Imagery tab (it is intrinsically raster imagery);
+// individual rows are distinguished by their `source_type` of 'wmts'.
+type SourceTab = 'features' | 'imagery' | 'basemap';
 
 const TAB_LABELS: Record<SourceTab, string> = {
   features: 'Features',
   imagery: 'Imagery',
   basemap: 'Basemaps',
-  wmts: 'WMTS',
 };
 
 interface WmtsMetadata {
@@ -61,19 +63,7 @@ function toOgcApiSource(s: SavedSource): OgcApiSource {
 }
 
 function toWmtsSource(s: SavedSource): WmtsSource {
-  return {
-    id: s.source_id,
-    sourceType: 'wmts',
-    capabilitiesUrl: s.url,
-    label: s.label ?? undefined,
-    layer: s.metadata?.wmtsLayer ?? '',
-    style: s.metadata?.wmtsStyle ?? 'default',
-    format: s.metadata?.wmtsFormat ?? 'image/png',
-    tileMatrixSet: s.metadata?.wmtsTileMatrixSet ?? s.tile_matrix_set_id ?? 'WebMercatorQuad',
-    tileSize: s.metadata?.wmtsTileSize ?? 256,
-    auth: s.auth ?? undefined,
-    proxy: s.proxy,
-  };
+  return savedSourceToWmts(s);
 }
 
 function toBasemapConfig(s: SavedSource): BasemapConfig {
@@ -227,9 +217,10 @@ export function SourcesPage() {
     tileMatrixSet: 'WebMercatorQuad',
     tileSize: 256,
   });
-  const [addingNewWmts, setAddingNewWmts] = useState(false);
   const [newWmtsSource, setNewWmtsSource] = useState<WmtsSource>(emptyWmts());
   const [editingWmtsSource, setEditingWmtsSource] = useState<WmtsSource | null>(null);
+  // Within the Imagery tab's "add source" form: tile-URL/OGC source vs WMTS source.
+  const [imageryAddKind, setImageryAddKind] = useState<'tile' | 'wmts'>('tile');
 
   // Mode for the basemap create form: a hand-typed Style URL, or one derived
   // from an existing imagery source (the server synthesizes the style.json).
@@ -251,8 +242,11 @@ export function SourcesPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
 
-  // Derived: filtered sources for active tab
-  const filteredSources = sources.filter(s => (s.source_type ?? 'features') === activeTab);
+  // Derived: filtered sources for active tab. The Imagery tab also shows WMTS
+  // rows, since WMTS is just another imagery transport.
+  const matchesTab = (s: SavedSource, tab: SourceTab) =>
+    tab === 'imagery' ? savedSourceIsImagery(s) : (s.source_type ?? 'features') === tab;
+  const filteredSources = sources.filter(s => matchesTab(s, activeTab));
 
   const toggleExpanded = (id: string) => {
     setExpandedIds(prev => {
@@ -282,7 +276,7 @@ export function SourcesPage() {
   useEffect(() => {
     setAddingNew(false);
     setAddingNewBasemap(false);
-    setAddingNewWmts(false);
+    setImageryAddKind('tile');
     setEditingId(null);
     setEditingSource(null);
     setEditingBasemap(null);
@@ -629,7 +623,8 @@ export function SourcesPage() {
         setActionError(data.error);
         return;
       }
-      setAddingNewWmts(false);
+      setAddingNew(false);
+      setImageryAddKind('tile');
       setNewWmtsSource(emptyWmts());
       await fetchSources();
     } catch (err) {
@@ -804,18 +799,21 @@ export function SourcesPage() {
       setNewBasemap({ id: '', label: '', url: '' });
       setNewImageryBasemap({ source_id: '', label: '', imagery_source_id: '', collection_id: '', thumbnail: '' });
       setBasemapMode('style-url');
-    } else if (activeTab === 'wmts') {
-      setAddingNewWmts(true);
-      setNewWmtsSource(emptyWmts());
     } else {
       setAddingNew(true);
+      setImageryAddKind('tile');
       setNewSource({ id: '', url: '', tileMatrixSetId: 'WebMercatorQuad', type: activeTab });
+      setNewWmtsSource(emptyWmts());
     }
   };
 
   const isBasemapTab = activeTab === 'basemap';
-  const isWmtsTab = activeTab === 'wmts';
-  const showExpandColumn = !isBasemapTab && !isWmtsTab;
+  const isImageryTab = activeTab === 'imagery';
+  // The "add source" form shows the WMTS editor only when the Imagery tab's
+  // Tile-URL/WMTS toggle is set to WMTS.
+  const wmtsAddMode = isImageryTab && imageryAddKind === 'wmts';
+  // Expand/metadata column applies to OGC rows (features + imagery), not basemaps.
+  const showExpandColumn = !isBasemapTab;
   const colCount = showExpandColumn ? 7 : 6;
 
   if (loading) return <div className="mapui:p-8 mapui:text-center mapui:text-slate-500">Loading...</div>;
@@ -835,15 +833,15 @@ export function SourcesPage() {
             onClick={handleAddNew}
             className="mapui:bg-blue-600 mapui:text-white mapui:px-4 mapui:py-2 mapui:rounded mapui:hover:bg-blue-700 mapui:text-sm"
           >
-            {isBasemapTab ? 'Add Basemap' : isWmtsTab ? 'Add WMTS Source' : 'Create New Source'}
+            {isBasemapTab ? 'Add Basemap' : 'Create New Source'}
           </button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="mapui:flex mapui:gap-1 mapui:mb-4 mapui:border-b mapui:border-slate-200">
-        {(['basemap', 'imagery', 'features', 'wmts'] as const).map(tab => {
-          const count = sources.filter(s => (s.source_type ?? 'features') === tab).length;
+        {(['basemap', 'imagery', 'features'] as const).map(tab => {
+          const count = sources.filter(s => matchesTab(s, tab)).length;
           return (
             <button
               key={tab}
@@ -869,44 +867,54 @@ export function SourcesPage() {
       {actionError && <DismissibleAlert message={actionError} variant="error" onDismiss={() => setActionError(null)} />}
       {successMessage && <DismissibleAlert message={successMessage} variant="success" onDismiss={() => setSuccessMessage(null)} />}
 
-      {/* Create new WMTS source form */}
-      {addingNewWmts && isWmtsTab && (
+      {/* Create new OGC / WMTS source form (features + imagery). On the Imagery
+          tab a Tile-URL/OGC ⇄ WMTS toggle picks which editor + handler to use. */}
+      {addingNew && !isBasemapTab && (
         <div className="mapui:mb-6 mapui:bg-white mapui:rounded-lg mapui:shadow mapui:p-6">
-          <h2 className="mapui:text-lg mapui:font-semibold mapui:text-slate-800 mapui:mb-4">New WMTS Source</h2>
-          <WmtsSourceEditor value={newWmtsSource} onChange={setNewWmtsSource} />
-          <div className="mapui:mt-4 mapui:flex mapui:gap-2">
-            <button
-              onClick={handleCreateWmts}
-              disabled={saving || !newWmtsSource.id || !newWmtsSource.capabilitiesUrl || !newWmtsSource.layer}
-              className="mapui:bg-blue-600 mapui:text-white mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-blue-700 mapui:disabled:opacity-50 mapui:disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saving...' : 'Save Source'}
-            </button>
-            <button
-              onClick={() => setAddingNewWmts(false)}
-              className="mapui:border mapui:border-slate-300 mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+          <h2 className="mapui:text-lg mapui:font-semibold mapui:text-slate-800 mapui:mb-4">New {isImageryTab ? 'Imagery' : 'Feature'} Source</h2>
 
-      {/* Create new OGC source form (features/imagery) */}
-      {addingNew && !isBasemapTab && !isWmtsTab && (
-        <div className="mapui:mb-6 mapui:bg-white mapui:rounded-lg mapui:shadow mapui:p-6">
-          <h2 className="mapui:text-lg mapui:font-semibold mapui:text-slate-800 mapui:mb-4">New {activeTab === 'imagery' ? 'Imagery' : 'Feature'} Source</h2>
-          <SourceEditor
-            value={newSource}
-            onChange={setNewSource}
-            onTestConnection={(url, auth) => handleTestConnection('new', url, auth)}
-            testStatus={testStatus['new']}
-            testError={testError['new']}
-          />
+          {isImageryTab && (
+            <div className="mapui:mb-4 mapui:flex mapui:gap-4 mapui:text-sm">
+              <label className="mapui:flex mapui:items-center mapui:gap-1.5">
+                <input
+                  type="radio"
+                  name="imagery-add-kind"
+                  checked={imageryAddKind === 'tile'}
+                  onChange={() => setImageryAddKind('tile')}
+                />
+                Tile URL / OGC
+              </label>
+              <label className="mapui:flex mapui:items-center mapui:gap-1.5">
+                <input
+                  type="radio"
+                  name="imagery-add-kind"
+                  checked={imageryAddKind === 'wmts'}
+                  onChange={() => setImageryAddKind('wmts')}
+                />
+                WMTS
+              </label>
+            </div>
+          )}
+
+          {wmtsAddMode ? (
+            <WmtsSourceEditor value={newWmtsSource} onChange={setNewWmtsSource} />
+          ) : (
+            <SourceEditor
+              value={newSource}
+              onChange={setNewSource}
+              onTestConnection={(url, auth) => handleTestConnection('new', url, auth)}
+              testStatus={testStatus['new']}
+              testError={testError['new']}
+            />
+          )}
           <div className="mapui:mt-4 mapui:flex mapui:gap-2">
             <button
-              onClick={handleCreate}
-              disabled={saving || !newSource.id || !newSource.url}
+              onClick={wmtsAddMode ? handleCreateWmts : handleCreate}
+              disabled={
+                wmtsAddMode
+                  ? saving || !newWmtsSource.id || !newWmtsSource.capabilitiesUrl || !newWmtsSource.layer
+                  : saving || !newSource.id || !newSource.url
+              }
               className="mapui:bg-blue-600 mapui:text-white mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-blue-700 mapui:disabled:opacity-50 mapui:disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save Source'}
@@ -994,12 +1002,12 @@ export function SourcesPage() {
         </div>
       )}
 
-      {filteredSources.length === 0 && !addingNew && !addingNewBasemap && !addingNewWmts ? (
+      {filteredSources.length === 0 && !addingNew && !addingNewBasemap ? (
         <div className="mapui:text-center mapui:text-slate-500 mapui:py-12">
           {isBasemapTab
             ? 'No basemaps saved yet. Add one or import from existing configs.'
-            : isWmtsTab
-              ? 'No WMTS sources saved yet. Add one to serve raster tiles from a WMTS endpoint (e.g. NASA GIBS).'
+            : isImageryTab
+              ? 'No imagery sources saved yet. Add a tile URL, OGC API, or WMTS source.'
               : `No ${activeTab} sources saved yet. Create one or import from existing configs.`}
         </div>
       ) : filteredSources.length > 0 && (
@@ -1017,8 +1025,8 @@ export function SourcesPage() {
                 <th className="mapui:px-4 mapui:py-3 mapui:text-sm mapui:font-medium mapui:text-slate-600">Label</th>
                 {isBasemapTab ? (
                   <th className="mapui:px-4 mapui:py-3 mapui:text-sm mapui:font-medium mapui:text-slate-600">Thumbnail</th>
-                ) : isWmtsTab ? (
-                  <th className="mapui:px-4 mapui:py-3 mapui:text-sm mapui:font-medium mapui:text-slate-600">Layer</th>
+                ) : isImageryTab ? (
+                  <th className="mapui:px-4 mapui:py-3 mapui:text-sm mapui:font-medium mapui:text-slate-600">Layer / Collections</th>
                 ) : (
                   <th className="mapui:px-4 mapui:py-3 mapui:text-sm mapui:font-medium mapui:text-slate-600">Collections</th>
                 )}
@@ -1027,11 +1035,13 @@ export function SourcesPage() {
               </tr>
             </thead>
             <tbody className="mapui:divide-y mapui:divide-slate-200">
-              {filteredSources.map(source => (
+              {filteredSources.map(source => {
+                const isWmtsRow = (source.source_type ?? 'features') === 'wmts';
+                return (
                 <Fragment key={source.id}>
                   <tr>
                     {/* Editing row (OGC source) */}
-                    {editingId === source.id && !isBasemapTab && !isWmtsTab ? (
+                    {editingId === source.id && !isBasemapTab && !isWmtsRow ? (
                       <td colSpan={colCount} className="mapui:px-6 mapui:py-4">
                         <SourceEditor
                           value={editingSource ?? toOgcApiSource(source)}
@@ -1056,7 +1066,7 @@ export function SourcesPage() {
                           </button>
                         </div>
                       </td>
-                    ) : editingId === source.id && isWmtsTab ? (
+                    ) : editingId === source.id && isWmtsRow ? (
                       <td colSpan={colCount} className="mapui:px-6 mapui:py-4">
                         <WmtsSourceEditor
                           value={editingWmtsSource ?? toWmtsSource(source)}
@@ -1133,6 +1143,8 @@ export function SourcesPage() {
                       <>
                         {showExpandColumn && (
                           <td className="mapui:px-3 mapui:py-4">
+                            {/* WMTS rows carry no inspectable metadata panel */}
+                            {!isWmtsRow && (
                             <button
                               onClick={() => toggleExpanded(source.id)}
                               className="mapui:text-slate-400 mapui:hover:text-slate-600"
@@ -1152,6 +1164,7 @@ export function SourcesPage() {
                                 <polyline points="9 18 15 12 9 6" />
                               </svg>
                             </button>
+                            )}
                           </td>
                         )}
                         <td className="mapui:px-4 mapui:py-4 mapui:font-medium mapui:font-mono mapui:text-sm mapui:text-slate-900">{source.source_id}</td>
@@ -1180,7 +1193,7 @@ export function SourcesPage() {
                               <span className="mapui:text-slate-400">—</span>
                             )}
                           </td>
-                        ) : isWmtsTab ? (
+                        ) : isWmtsRow ? (
                           <td className="mapui:px-4 mapui:py-4 mapui:text-slate-500 mapui:text-sm mapui:font-mono">
                             {source.metadata?.wmtsLayer ?? '—'}
                           </td>
@@ -1211,7 +1224,7 @@ export function SourcesPage() {
                                     setEditingBasemap(toBasemapConfig(source));
                                     setEditingImageryBasemap(null);
                                   }
-                                } else if (isWmtsTab) {
+                                } else if (isWmtsRow) {
                                   setEditingWmtsSource(toWmtsSource(source));
                                 } else {
                                   setEditingSource(toOgcApiSource(source));
@@ -1233,7 +1246,7 @@ export function SourcesPage() {
                     )}
                   </tr>
                   {/* Metadata expansion for OGC sources only */}
-                  {!isBasemapTab && !isWmtsTab && expandedIds.has(source.id) && editingId !== source.id && (
+                  {!isBasemapTab && !isWmtsRow && expandedIds.has(source.id) && editingId !== source.id && (
                     <tr>
                       <td colSpan={colCount} className="mapui:p-0">
                         <SourceMetadataPanel
@@ -1247,7 +1260,8 @@ export function SourcesPage() {
                     </tr>
                   )}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import type { ImageryLayerConfig, OgcApiSource } from '../../types';
+import type { ImageryLayerConfig, MapSource } from '../../types';
+import { isOgcApiSource } from '../../utils/wmts';
 import { ImageryEditor } from './ImageryEditor';
 import { ConfirmDialog } from '../admin/ConfirmDialog';
 
 export interface ImageryListProps {
   imageryLayers: ImageryLayerConfig[];
   onChange: (layers: ImageryLayerConfig[]) => void;
-  availableSources?: OgcApiSource[];
+  availableSources?: MapSource[];
 }
 
 /**
@@ -24,7 +25,7 @@ export function isImageryLayerIncomplete(layer: ImageryLayerConfig): boolean {
   return noSource && noTileUrl && noCollection;
 }
 
-const DEFAULT_IMAGERY_LAYER: ImageryLayerConfig = {
+export const DEFAULT_IMAGERY_LAYER: ImageryLayerConfig = {
   id: '',
   sourceId: '',
   collection: '',
@@ -138,17 +139,20 @@ export function ImageryList({
                   </button>
                 </div>
               )}
-              {editingIndex === index && (
+              {editingIndex === index && (() => {
+                const src = availableSources.find((s) => s.id === layer.sourceId);
+                return (
                 <div className="mapui:border-t mapui:border-slate-200 mapui:px-3 mapui:py-3">
                   <ImageryEditor
                     value={layer}
                     onChange={(updated) => handleUpdate(index, updated)}
                     availableSources={availableSources}
-                    sourceUrl={availableSources.find((s) => s.id === layer.sourceId)?.url}
-                    sourceAuth={availableSources.find((s) => s.id === layer.sourceId)?.auth}
+                    sourceUrl={src && isOgcApiSource(src) ? src.url : undefined}
+                    sourceAuth={src?.auth}
                   />
                 </div>
-              )}
+                );
+              })()}
             </li>
             );
           })}

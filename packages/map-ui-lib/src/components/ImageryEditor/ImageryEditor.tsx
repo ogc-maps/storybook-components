@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react';
-import type { ImageryLayerConfig, OgcApiSource, SourceAuth } from '../../types';
+import type { ImageryLayerConfig, MapSource, SourceAuth } from '../../types';
 import { useOgcCollections } from '../../hooks/useOgcCollections';
 import { fetchGenericTileJson, tileSizeFromTileJson, detectTileSourceType } from '../../utils/ogcApi';
+import { isWmtsSource } from '../../utils/wmts';
 import { FormField } from '../admin/FormField';
 import { slugify } from '../../utils/slugify';
 
 export interface ImageryEditorProps {
   value: ImageryLayerConfig;
   onChange: (layer: ImageryLayerConfig) => void;
-  availableSources?: OgcApiSource[];
+  availableSources?: MapSource[];
   /** Resolved base URL for the selected source — enables collection dropdown */
   sourceUrl?: string;
   /** Auth config for the selected source — passed to collection fetching */
@@ -26,6 +27,9 @@ export function ImageryEditor({
   sourceAuth,
 }: ImageryEditorProps) {
   const update = (patch: Partial<ImageryLayerConfig>) => onChange({ ...value, ...patch });
+
+  const selectedSource = availableSources.find((s) => s.id === value.sourceId);
+  const selectedWmtsSource = selectedSource && isWmtsSource(selectedSource) ? selectedSource : null;
 
   const isCustomUrl = value.tileUrlTemplate != null;
   const { collections, loading: collectionsLoading } = useOgcCollections(
@@ -204,7 +208,8 @@ export function ImageryEditor({
                 <option value="">Select a source...</option>
                 {availableSources.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.label ?? s.id}{s.type === 'imagery' ? ' (Imagery)' : ''}
+                    {s.label ?? s.id}
+                    {isWmtsSource(s) ? ' (WMTS)' : s.type === 'imagery' ? ' (Imagery)' : ''}
                   </option>
                 ))}
               </select>
@@ -219,6 +224,15 @@ export function ImageryEditor({
             )}
           </FormField>
 
+          {selectedWmtsSource ? (
+            <p className="mapui:rounded mapui:border mapui:border-slate-200 mapui:bg-slate-50 mapui:px-3 mapui:py-2 mapui:text-xs mapui:text-slate-600">
+              WMTS source — serves layer{' '}
+              <span className="mapui:font-medium mapui:text-slate-800">
+                {selectedWmtsSource.layer}
+              </span>
+              . No collection needed.
+            </p>
+          ) : (
           <FormField label="Collection" required>
             {sourceUrl && collections.length > 0 ? (
               <select
@@ -248,6 +262,7 @@ export function ImageryEditor({
               />
             )}
           </FormField>
+          )}
         </>
       )}
 
