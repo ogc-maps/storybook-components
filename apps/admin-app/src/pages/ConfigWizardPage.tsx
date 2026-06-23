@@ -19,9 +19,11 @@ import {
   INFO_POSITIONS,
 } from '@ogc-maps/storybook-components';
 import { safeValidateMapConfig, DEFAULT_HEADER_COLOR } from '@ogc-maps/storybook-components/schemas';
-import { detectTileSourceType, isOgcApiSource } from '@ogc-maps/storybook-components/utils';
+import { detectTileSourceType, isOgcApiSource, isImagerySource } from '@ogc-maps/storybook-components/utils';
+import { savedSourceToWmts } from '../utils/wmtsSource';
 import type {
   OgcApiSource,
+  WmtsSource,
   MapSource,
   LayerConfig,
   ImageryLayerConfig,
@@ -65,7 +67,7 @@ const INFO_POSITION_OPTIONS = INFO_POSITIONS.map((pos) => ({
   label: pos.replace('-', ' ').replace(/^./, (c) => c.toUpperCase()),
 }));
 
-interface SavedSourceSummary { id: string; source_id: string; url: string; label: string | null; tile_matrix_set_id: string; source_type?: string; auth?: SourceAuth | null; metadata?: { thumbnail?: string; tileJson?: { tiles: string[]; name?: string; minzoom?: number; maxzoom?: number } } | null }
+interface SavedSourceSummary { id: string; source_id: string; url: string; label: string | null; tile_matrix_set_id: string; source_type?: string; auth?: SourceAuth | null; metadata?: { thumbnail?: string; tileJson?: { tiles: string[]; name?: string; minzoom?: number; maxzoom?: number }; wmtsLayer?: string; wmtsStyle?: string; wmtsFormat?: string; wmtsTileMatrixSet?: string; wmtsTileSize?: number } | null }
 
 type WizardStep = 'metadata' | 'info' | 'layers' | 'search-display' | 'imagery' | 'basemaps' | 'ui' | 'view' | 'review';
 
@@ -516,7 +518,7 @@ export function ConfigWizardPage() {
 
   // Derive filtered saved sources by type
   const savedFeatureSources = savedSources.filter(s => (s.source_type ?? 'features') === 'features');
-  const savedImagerySources = savedSources.filter(s => s.source_type === 'imagery');
+  const savedImagerySources = savedSources.filter(s => s.source_type === 'imagery' || s.source_type === 'wmts');
   const savedBasemapSources = savedSources.filter(s => s.source_type === 'basemap');
   const imageryOgcSources = sources.filter(
     (s): s is OgcApiSource =>
@@ -896,6 +898,27 @@ export function ConfigWizardPage() {
                             setImageryLayers(prev => prev.filter(l => l.sourceId !== saved.source_id));
                             return;
                           }
+                          // WMTS sources carry their layer/style/matrixset in the
+                          // saved row's metadata — reconstruct the WmtsSource and
+                          // auto-add an imagery layer that just points at it (no
+                          // collection, no template; buildSourceUrlMap derives the URL).
+                          if (saved.source_type === 'wmts') {
+                            const wmtsSource: WmtsSource = savedSourceToWmts(saved);
+                            setSources(prev => [...prev, wmtsSource]);
+                            const label = saved.label ?? saved.source_id;
+                            setImageryLayers(prev => [...prev, {
+                              id: slugify(label) || saved.source_id,
+                              sourceId: saved.source_id,
+                              collection: '',
+                              label,
+                              visible: false,
+                              opacity: 1,
+                              exclusive: false,
+                              tileSize: 256,
+                            }]);
+                            return;
+                          }
+
                           const newSource: OgcApiSource = {
                             id: saved.source_id,
                             url: saved.url,
@@ -1008,7 +1031,7 @@ export function ConfigWizardPage() {
                       <ImageryList
                         imageryLayers={imageryLayers}
                         onChange={setImageryLayers}
-                        availableSources={sources.filter(isOgcApiSource)}
+                        availableSources={sources.filter(isImagerySource)}
                       />
                     </div>
                   )}

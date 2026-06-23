@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import type { ImageryLayerConfig, OgcApiSource } from '../../types';
+import type { ImageryLayerConfig, MapSource } from '../../types';
+import { isOgcApiSource } from '../../utils/wmts';
 import { ImageryEditor } from './ImageryEditor';
 import { ConfirmDialog } from '../admin/ConfirmDialog';
 
 export interface ImageryListProps {
   imageryLayers: ImageryLayerConfig[];
   onChange: (layers: ImageryLayerConfig[]) => void;
-  availableSources?: OgcApiSource[];
+  availableSources?: MapSource[];
 }
 
 /**
@@ -144,7 +145,10 @@ export function ImageryList({
                     value={layer}
                     onChange={(updated) => handleUpdate(index, updated)}
                     availableSources={availableSources}
-                    sourceUrl={availableSources.find((s) => s.id === layer.sourceId)?.url}
+                    sourceUrl={(() => {
+                      const src = availableSources.find((s) => s.id === layer.sourceId);
+                      return src && isOgcApiSource(src) ? src.url : undefined;
+                    })()}
                     sourceAuth={availableSources.find((s) => s.id === layer.sourceId)?.auth}
                   />
                 </div>

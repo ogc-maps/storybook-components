@@ -4,7 +4,52 @@ import {
   buildWmtsTileUrlTemplate,
   parseWmtsCapabilities,
   fetchWmtsCapabilities,
+  isOgcApiSource,
+  isWmtsSource,
+  isImagerySource,
 } from '../wmts';
+import type { MapSource } from '../../types';
+
+const wmtsSource: MapSource = {
+  id: 'usgs-topo',
+  sourceType: 'wmts',
+  capabilitiesUrl: 'https://example.com/wmts/GetCapabilities.xml',
+  layer: 'usgs-topo',
+  style: 'default',
+  format: 'image/png',
+  tileMatrixSet: 'WebMercatorQuad',
+  tileSize: 256,
+};
+const imageryOgcSource: MapSource = {
+  id: 'goes',
+  url: 'https://example.com/ogc',
+  type: 'imagery',
+};
+const featuresOgcSource: MapSource = {
+  id: 'parcels',
+  url: 'https://example.com/ogc',
+  type: 'features',
+};
+
+describe('source-role guards', () => {
+  it('isWmtsSource narrows only WMTS sources', () => {
+    expect(isWmtsSource(wmtsSource)).toBe(true);
+    expect(isWmtsSource(imageryOgcSource)).toBe(false);
+    expect(isWmtsSource(featuresOgcSource)).toBe(false);
+  });
+
+  it('isOgcApiSource is the inverse of isWmtsSource', () => {
+    expect(isOgcApiSource(wmtsSource)).toBe(false);
+    expect(isOgcApiSource(imageryOgcSource)).toBe(true);
+    expect(isOgcApiSource(featuresOgcSource)).toBe(true);
+  });
+
+  it('isImagerySource accepts WMTS and OGC imagery, rejects OGC features', () => {
+    expect(isImagerySource(wmtsSource)).toBe(true);
+    expect(isImagerySource(imageryOgcSource)).toBe(true);
+    expect(isImagerySource(featuresOgcSource)).toBe(false);
+  });
+});
 
 describe('buildWmtsTileUrlTemplate', () => {
   it('builds a {z}/{y}/{x} template from a capabilities URL', () => {
