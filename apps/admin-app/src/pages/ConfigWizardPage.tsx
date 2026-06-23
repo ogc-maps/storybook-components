@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   LayerList,
   ImageryList,
+  DEFAULT_IMAGERY_LAYER,
   isImageryLayerIncomplete,
   CollectionBrowser,
   BasemapList,
@@ -20,7 +21,7 @@ import {
 } from '@ogc-maps/storybook-components';
 import { safeValidateMapConfig, DEFAULT_HEADER_COLOR } from '@ogc-maps/storybook-components/schemas';
 import { detectTileSourceType, isOgcApiSource, isImagerySource } from '@ogc-maps/storybook-components/utils';
-import { savedSourceToWmts } from '../utils/wmtsSource';
+import { savedSourceToWmts, savedSourceIsImagery } from '../utils/wmtsSource';
 import type {
   OgcApiSource,
   WmtsSource,
@@ -518,7 +519,7 @@ export function ConfigWizardPage() {
 
   // Derive filtered saved sources by type
   const savedFeatureSources = savedSources.filter(s => (s.source_type ?? 'features') === 'features');
-  const savedImagerySources = savedSources.filter(s => s.source_type === 'imagery' || s.source_type === 'wmts');
+  const savedImagerySources = savedSources.filter(savedSourceIsImagery);
   const savedBasemapSources = savedSources.filter(s => s.source_type === 'basemap');
   const imageryOgcSources = sources.filter(
     (s): s is OgcApiSource =>
@@ -907,14 +908,10 @@ export function ConfigWizardPage() {
                             setSources(prev => [...prev, wmtsSource]);
                             const label = saved.label ?? saved.source_id;
                             setImageryLayers(prev => [...prev, {
+                              ...DEFAULT_IMAGERY_LAYER,
                               id: slugify(label) || saved.source_id,
                               sourceId: saved.source_id,
-                              collection: '',
                               label,
-                              visible: false,
-                              opacity: 1,
-                              exclusive: false,
-                              tileSize: 256,
                             }]);
                             return;
                           }

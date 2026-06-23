@@ -29,7 +29,7 @@ export function ImageryEditor({
   const update = (patch: Partial<ImageryLayerConfig>) => onChange({ ...value, ...patch });
 
   const selectedSource = availableSources.find((s) => s.id === value.sourceId);
-  const selectedIsWmts = selectedSource != null && isWmtsSource(selectedSource);
+  const selectedWmtsSource = selectedSource && isWmtsSource(selectedSource) ? selectedSource : null;
 
   const isCustomUrl = value.tileUrlTemplate != null;
   const { collections, loading: collectionsLoading } = useOgcCollections(
@@ -224,11 +224,11 @@ export function ImageryEditor({
             )}
           </FormField>
 
-          {selectedIsWmts ? (
+          {selectedWmtsSource ? (
             <p className="mapui:rounded mapui:border mapui:border-slate-200 mapui:bg-slate-50 mapui:px-3 mapui:py-2 mapui:text-xs mapui:text-slate-600">
               WMTS source — serves layer{' '}
               <span className="mapui:font-medium mapui:text-slate-800">
-                {selectedSource && isWmtsSource(selectedSource) ? selectedSource.layer : ''}
+                {selectedWmtsSource.layer}
               </span>
               . No collection needed.
             </p>

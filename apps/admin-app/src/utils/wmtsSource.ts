@@ -23,6 +23,17 @@ export interface SavedWmtsSourceFields {
   } | null;
 }
 
+/**
+ * True if a saved source row plays the imagery role (raster tiles) — i.e. it
+ * belongs under the admin "Imagery" tab and can back an imagery layer. WMTS is
+ * intrinsically raster imagery; OGC imagery sources carry `source_type:'imagery'`.
+ * Single source of truth for the imagery-role `source_type` set (mirrors the
+ * lib's `isImagerySource` for the in-config `MapSource` union).
+ */
+export function savedSourceIsImagery(s: { source_type?: string | null }): boolean {
+  return s.source_type === 'imagery' || s.source_type === 'wmts';
+}
+
 /** Reconstruct a `WmtsSource` from a persisted source row (`url` = capabilitiesUrl). */
 export function savedSourceToWmts(s: SavedWmtsSourceFields): WmtsSource {
   return {

@@ -102,7 +102,7 @@ export { PropertyDisplayEditor } from './PropertyDisplayEditor';
 export type { PropertyDisplayEditorProps } from './PropertyDisplayEditor';
 export { LayerEditor, LayerList, buildSourceOptionGroups } from './LayerEditor';
 export type { LayerEditorProps, LayerEditorSection, LayerListProps, SourceGroup, SourceOptionGroup } from './LayerEditor';
-export { ImageryEditor, ImageryList, slugify, isImageryLayerIncomplete } from './ImageryEditor';
+export { ImageryEditor, ImageryList, slugify, isImageryLayerIncomplete, DEFAULT_IMAGERY_LAYER } from './ImageryEditor';
 export type { ImageryEditorProps, ImageryListProps } from './ImageryEditor';
 export { BasemapEditor, BasemapList } from './BasemapEditor';
 export type { BasemapEditorProps, BasemapListProps } from './BasemapEditor';

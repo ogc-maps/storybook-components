@@ -25,7 +25,7 @@ export function isImageryLayerIncomplete(layer: ImageryLayerConfig): boolean {
   return noSource && noTileUrl && noCollection;
 }
 
-const DEFAULT_IMAGERY_LAYER: ImageryLayerConfig = {
+export const DEFAULT_IMAGERY_LAYER: ImageryLayerConfig = {
   id: '',
   sourceId: '',
   collection: '',
@@ -139,20 +139,20 @@ export function ImageryList({
                   </button>
                 </div>
               )}
-              {editingIndex === index && (
+              {editingIndex === index && (() => {
+                const src = availableSources.find((s) => s.id === layer.sourceId);
+                return (
                 <div className="mapui:border-t mapui:border-slate-200 mapui:px-3 mapui:py-3">
                   <ImageryEditor
                     value={layer}
                     onChange={(updated) => handleUpdate(index, updated)}
                     availableSources={availableSources}
-                    sourceUrl={(() => {
-                      const src = availableSources.find((s) => s.id === layer.sourceId);
-                      return src && isOgcApiSource(src) ? src.url : undefined;
-                    })()}
-                    sourceAuth={availableSources.find((s) => s.id === layer.sourceId)?.auth}
+                    sourceUrl={src && isOgcApiSource(src) ? src.url : undefined}
+                    sourceAuth={src?.auth}
                   />
                 </div>
-              )}
+                );
+              })()}
             </li>
             );
           })}

@@ -5,7 +5,7 @@ import { detectTileSourceType, appendAuth, authHeaders } from '@ogc-maps/storybo
 import { SourceMetadataPanel } from '../components/SourceMetadataPanel';
 import type { InspectionResult } from '../components/SourceMetadataPanel';
 import { inspectSourceClientSide } from '../utils/inspectSource';
-import { savedSourceToWmts } from '../utils/wmtsSource';
+import { savedSourceToWmts, savedSourceIsImagery } from '../utils/wmtsSource';
 
 // WMTS is folded into the Imagery tab (it is intrinsically raster imagery);
 // individual rows are distinguished by their `source_type` of 'wmts'.
@@ -244,10 +244,8 @@ export function SourcesPage() {
 
   // Derived: filtered sources for active tab. The Imagery tab also shows WMTS
   // rows, since WMTS is just another imagery transport.
-  const matchesTab = (s: SavedSource, tab: SourceTab) => {
-    const t = s.source_type ?? 'features';
-    return tab === 'imagery' ? t === 'imagery' || t === 'wmts' : t === tab;
-  };
+  const matchesTab = (s: SavedSource, tab: SourceTab) =>
+    tab === 'imagery' ? savedSourceIsImagery(s) : (s.source_type ?? 'features') === tab;
   const filteredSources = sources.filter(s => matchesTab(s, activeTab));
 
   const toggleExpanded = (id: string) => {
@@ -811,6 +809,9 @@ export function SourcesPage() {
 
   const isBasemapTab = activeTab === 'basemap';
   const isImageryTab = activeTab === 'imagery';
+  // The "add source" form shows the WMTS editor only when the Imagery tab's
+  // Tile-URL/WMTS toggle is set to WMTS.
+  const wmtsAddMode = isImageryTab && imageryAddKind === 'wmts';
   // Expand/metadata column applies to OGC rows (features + imagery), not basemaps.
   const showExpandColumn = !isBasemapTab;
   const colCount = showExpandColumn ? 7 : 6;
@@ -895,51 +896,36 @@ export function SourcesPage() {
             </div>
           )}
 
-          {isImageryTab && imageryAddKind === 'wmts' ? (
-            <>
-              <WmtsSourceEditor value={newWmtsSource} onChange={setNewWmtsSource} />
-              <div className="mapui:mt-4 mapui:flex mapui:gap-2">
-                <button
-                  onClick={handleCreateWmts}
-                  disabled={saving || !newWmtsSource.id || !newWmtsSource.capabilitiesUrl || !newWmtsSource.layer}
-                  className="mapui:bg-blue-600 mapui:text-white mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-blue-700 mapui:disabled:opacity-50 mapui:disabled:cursor-not-allowed"
-                >
-                  {saving ? 'Saving...' : 'Save Source'}
-                </button>
-                <button
-                  onClick={() => setAddingNew(false)}
-                  className="mapui:border mapui:border-slate-300 mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
+          {wmtsAddMode ? (
+            <WmtsSourceEditor value={newWmtsSource} onChange={setNewWmtsSource} />
           ) : (
-            <>
-              <SourceEditor
-                value={newSource}
-                onChange={setNewSource}
-                onTestConnection={(url, auth) => handleTestConnection('new', url, auth)}
-                testStatus={testStatus['new']}
-                testError={testError['new']}
-              />
-              <div className="mapui:mt-4 mapui:flex mapui:gap-2">
-                <button
-                  onClick={handleCreate}
-                  disabled={saving || !newSource.id || !newSource.url}
-                  className="mapui:bg-blue-600 mapui:text-white mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-blue-700 mapui:disabled:opacity-50 mapui:disabled:cursor-not-allowed"
-                >
-                  {saving ? 'Saving...' : 'Save Source'}
-                </button>
-                <button
-                  onClick={() => setAddingNew(false)}
-                  className="mapui:border mapui:border-slate-300 mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
+            <SourceEditor
+              value={newSource}
+              onChange={setNewSource}
+              onTestConnection={(url, auth) => handleTestConnection('new', url, auth)}
+              testStatus={testStatus['new']}
+              testError={testError['new']}
+            />
           )}
+          <div className="mapui:mt-4 mapui:flex mapui:gap-2">
+            <button
+              onClick={wmtsAddMode ? handleCreateWmts : handleCreate}
+              disabled={
+                wmtsAddMode
+                  ? saving || !newWmtsSource.id || !newWmtsSource.capabilitiesUrl || !newWmtsSource.layer
+                  : saving || !newSource.id || !newSource.url
+              }
+              className="mapui:bg-blue-600 mapui:text-white mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-blue-700 mapui:disabled:opacity-50 mapui:disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save Source'}
+            </button>
+            <button
+              onClick={() => setAddingNew(false)}
+              className="mapui:border mapui:border-slate-300 mapui:px-4 mapui:py-2 mapui:rounded mapui:text-sm mapui:hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
