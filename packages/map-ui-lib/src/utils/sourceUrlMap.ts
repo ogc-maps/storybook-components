@@ -81,3 +81,19 @@ export function buildHeaderAuthTransformRequest(
     return { url, headers: { [match.auth.name]: match.auth.value } };
   };
 }
+
+/**
+ * Wrap an always-stable `transformRequest` that delegates to whatever
+ * `getDelegate()` returns at call time. Lets a renderer hand MapLibre one stable
+ * function at construction (react-map-gl v7 reads `transformRequest` only once,
+ * at `new Map(...)`) while still honoring header-auth sources that load *after*
+ * the map mounts. Passes the request through unchanged when there is no delegate.
+ */
+export function createLatestTransformRequest(
+  getDelegate: () => TransformRequestFn | undefined,
+): TransformRequestFn {
+  return (url: string) => {
+    const delegate = getDelegate();
+    return delegate ? delegate(url) : { url };
+  };
+}
