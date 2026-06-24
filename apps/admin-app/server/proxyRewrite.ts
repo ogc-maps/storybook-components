@@ -57,16 +57,21 @@ export function rewriteProxiedConfigUrls(
   proxiedSources: Map<string, ProxiedSourceInfo>,
   proxyBase: string,
 ): void {
+  // Re-point a tile template at the proxy, but only when it shares the source's
+  // origin (SSRF guard); otherwise leave it untouched.
+  const proxifyTile = (template: string, id: string, info: ProxiedSourceInfo): string => {
+    const origin = extractOrigin(template);
+    if (origin !== info.origin) return template;
+    const clean = stripQueryParams(template, info.paramsToStrip);
+    return `${proxyBase}/${id}${clean.substring(origin.length)}`;
+  };
+
   for (const source of config.sources ?? []) {
     const info = proxiedSources.get(source.id);
     if (!info) continue;
     source.url = `${proxyBase}/${source.id}${extractUrlPath(info.url)}`;
     if (source.tileUrlTemplate) {
-      const tileOrigin = extractOrigin(source.tileUrlTemplate);
-      if (tileOrigin === info.origin) {
-        const clean = stripQueryParams(source.tileUrlTemplate, info.paramsToStrip);
-        source.tileUrlTemplate = `${proxyBase}/${source.id}${clean.substring(tileOrigin.length)}`;
-      }
+      source.tileUrlTemplate = proxifyTile(source.tileUrlTemplate, source.id, info);
     }
     delete source.auth;
   }
@@ -75,9 +80,6 @@ export function rewriteProxiedConfigUrls(
     if (!layer.tileUrlTemplate || !layer.sourceId) continue;
     const info = proxiedSources.get(layer.sourceId);
     if (!info) continue;
-    const tileOrigin = extractOrigin(layer.tileUrlTemplate);
-    if (tileOrigin !== info.origin) continue; // SSRF protection
-    const clean = stripQueryParams(layer.tileUrlTemplate, info.paramsToStrip);
-    layer.tileUrlTemplate = `${proxyBase}/${layer.sourceId}${clean.substring(tileOrigin.length)}`;
+    layer.tileUrlTemplate = proxifyTile(layer.tileUrlTemplate, layer.sourceId, info);
   }
 }

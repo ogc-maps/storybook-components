@@ -53,11 +53,14 @@ export function WmtsSourceEditor({ value, onChange }: WmtsSourceEditorProps) {
       update({ layer: layerId });
       return;
     }
+    // Keep the current value if the layer still offers it, else snap to the
+    // layer's first advertised option (falling back to the current value when
+    // the layer advertises none).
     const pick = (current: string, options: string[]) =>
       options.includes(current) ? current : options[0] ?? current;
     update({
       layer: layerId,
-      style: pick(value.style, layer.styles.length ? layer.styles : ['default']),
+      style: pick(value.style, layer.styles),
       tileMatrixSet: pick(value.tileMatrixSet, layer.tileMatrixSets),
       format: pick(value.format, layer.formats),
     });

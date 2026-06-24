@@ -273,7 +273,7 @@ describe('parseWmtsCapabilities — dimensions & tile ResourceURLs', () => {
     expect(layer.dimensions).toEqual([{ id: 'Time', default: '2026-06-23' }]);
     expect(layer.tileResourceUrls).toHaveLength(2);
     expect(layer.tileResourceUrls?.map((r) => r.format)).toEqual(['image/jpeg', 'image/png']);
-    expect(layer.resourceUrlTemplate).toContain('{Time}'); // first, back-compat
+    expect(layer.tileResourceUrls?.[0].template).toContain('{Time}');
   });
 });
 
@@ -330,6 +330,22 @@ describe('resolveWmtsTileUrlTemplate', () => {
         { id: 'L', styles: [], tileMatrixSets: [], formats: [] },
         { style: 'default', tileMatrixSet: 'WebMercatorQuad' },
       ),
+    ).toBeNull();
+  });
+
+  it('returns null (falls back) when an unmodeled placeholder remains', () => {
+    const layer: WmtsLayer = {
+      id: 'L',
+      styles: ['default'],
+      tileMatrixSets: ['WebMercatorQuad'],
+      formats: ['image/png'],
+      // {Elevation} is not in dimensions → unresolvable.
+      tileResourceUrls: [
+        { format: 'image/png', template: 'https://h/L/{Style}/{Elevation}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png' },
+      ],
+    };
+    expect(
+      resolveWmtsTileUrlTemplate(layer, { style: 'default', tileMatrixSet: 'WebMercatorQuad' }),
     ).toBeNull();
   });
 });

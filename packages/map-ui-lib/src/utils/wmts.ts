@@ -47,8 +47,6 @@ export interface WmtsLayer {
   styles: string[];
   tileMatrixSets: string[];
   formats: string[];
-  /** First RESTful tile ResourceURL template, if present (back-compat). */
-  resourceUrlTemplate?: string;
   /** All tile ResourceURL templates, one per advertised format. */
   tileResourceUrls?: WmtsTileResourceUrl[];
   /** Dimensions (e.g. `Time`) advertised by the layer, with their defaults. */
@@ -86,19 +84,17 @@ export function buildWmtsTileUrlTemplate(
   return appendAuth(template, auth);
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
  * Resolve a layer's advertised tile `<ResourceURL>` template into a
  * MapLibre-ready URL template, filling WMTS placeholders. Prefer this over
  * `buildWmtsTileUrlTemplate` (which hand-builds the path and guesses wrong for
  * servers whose REST layout differs from `{base}/{layer}/{style}/{tms}/…`).
  *
- * Returns `null` when the layer advertises no tile ResourceURL — callers fall
- * back to `buildWmtsTileUrlTemplate`. The returned template carries no auth;
- * the renderer appends query auth / injects header auth.
+ * Returns `null` when the layer advertises no tile ResourceURL, or when the
+ * template contains a placeholder we can't resolve (an unmodeled dimension) —
+ * in both cases the caller falls back to `buildWmtsTileUrlTemplate` rather than
+ * baking a wrong URL. The returned template carries no auth; the renderer
+ * appends query auth / injects header auth.
  */
 export function resolveWmtsTileUrlTemplate(
   layer: WmtsLayer,
@@ -117,16 +113,24 @@ export function resolveWmtsTileUrlTemplate(
     .replace(/\{Style\}/gi, opts.style)
     .replace(/\{Layer\}/gi, layer.id);
 
-  // Dimension placeholders (e.g. {Time}) → the dimension's advertised default.
-  for (const dim of layer.dimensions ?? []) {
-    url = url.replace(new RegExp(`\\{${escapeRegExp(dim.id)}\\}`, 'gi'), dim.default ?? 'default');
-  }
+  // Fill remaining placeholders from the layer's advertised dimension defaults
+  // (e.g. {Time}). Keep the MapLibre {z}/{y}/{x} tokens; bail to null on any
+  // placeholder we can't resolve so the caller falls back instead of guessing.
+  const dimDefaults = new Map(
+    (layer.dimensions ?? []).map((d) => [d.id.toLowerCase(), d.default ?? 'default']),
+  );
+  let unresolved = false;
+  url = url.replace(/\{([^}]+)\}/g, (token, name: string) => {
+    if (/^[zyx]$/i.test(name)) return token;
+    const value = dimDefaults.get(name.toLowerCase());
+    if (value === undefined) {
+      unresolved = true;
+      return token;
+    }
+    return value;
+  });
 
-  // Any leftover placeholder (an unknown dimension) → best-effort "default",
-  // but never touch the MapLibre {z}/{y}/{x} tokens we just inserted.
-  url = url.replace(/\{[^}]+\}/g, (m) => (/^\{[zyx]\}$/i.test(m) ? m : 'default'));
-
-  return url;
+  return unresolved ? null : url;
 }
 
 function formatToExtension(format: string): string {
@@ -182,7 +186,6 @@ export function parseWmtsCapabilities(xml: string): WmtsCapabilities {
         format: r.getAttribute('format') ?? undefined,
       }))
       .filter((r) => r.template);
-    const resourceUrlTemplate = tileResourceUrls[0]?.template;
 
     const dimensions = Array.from(el.querySelectorAll(':scope > Dimension'))
       .map((d) => ({
@@ -197,7 +200,6 @@ export function parseWmtsCapabilities(xml: string): WmtsCapabilities {
       styles,
       tileMatrixSets,
       formats,
-      resourceUrlTemplate,
       tileResourceUrls,
       dimensions,
     });
