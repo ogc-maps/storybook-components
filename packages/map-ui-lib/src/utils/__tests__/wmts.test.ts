@@ -4,9 +4,11 @@ import {
   buildWmtsTileUrlTemplate,
   parseWmtsCapabilities,
   fetchWmtsCapabilities,
+  resolveWmtsTileUrlTemplate,
   isOgcApiSource,
   isWmtsSource,
   isImagerySource,
+  type WmtsLayer,
 } from '../wmts';
 import type { MapSource } from '../../types';
 
@@ -216,5 +218,118 @@ describe('fetchWmtsCapabilities', () => {
     await expect(pending).rejects.toThrow(/aborted/i);
     const [, init] = mock.mock.calls[0];
     expect(init.signal).toBe(controller.signal);
+  });
+});
+
+describe('buildWmtsTileUrlTemplate (hardened stripping)', () => {
+  it('strips a /GetCapabilities path with no .xml extension', () => {
+    const url = buildWmtsTileUrlTemplate(
+      'https://api.gic.org/wmts/GetCapabilities',
+      'bluesky-ultra-g',
+      'RGB',
+      'bluesky-ultra-g',
+      'image/png',
+    );
+    expect(url).toBe(
+      'https://api.gic.org/wmts/bluesky-ultra-g/RGB/bluesky-ultra-g/{z}/{y}/{x}.png',
+    );
+  });
+
+  it('drops a trailing version segment like /1.0.0 left by the capabilities path', () => {
+    const url = buildWmtsTileUrlTemplate(
+      'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml',
+      'L',
+      'default',
+      'GoogleMapsCompatible_Level9',
+      'image/jpeg',
+    );
+    expect(url).toBe(
+      'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/L/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+    );
+  });
+});
+
+describe('parseWmtsCapabilities — dimensions & tile ResourceURLs', () => {
+  const gibsLike = `<?xml version="1.0"?>
+<Capabilities xmlns="http://www.opengis.net/wmts/1.0" xmlns:ows="http://www.opengis.net/ows/1.1">
+  <Contents>
+    <Layer>
+      <ows:Identifier>MODIS</ows:Identifier>
+      <Style><ows:Identifier>default</ows:Identifier></Style>
+      <Dimension>
+        <ows:Identifier>Time</ows:Identifier>
+        <Default>2026-06-23</Default>
+      </Dimension>
+      <TileMatrixSetLink><TileMatrixSet>GoogleMapsCompatible_Level9</TileMatrixSet></TileMatrixSetLink>
+      <Format>image/jpeg</Format>
+      <ResourceURL resourceType="tile" format="image/jpeg" template="https://gibs/best/MODIS/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.jpeg"/>
+      <ResourceURL resourceType="tile" format="image/png" template="https://gibs/best/MODIS/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png"/>
+    </Layer>
+  </Contents>
+</Capabilities>`;
+
+  it('captures dimensions with their default and all tile ResourceURLs by format', () => {
+    const layer = parseWmtsCapabilities(gibsLike).layers[0];
+    expect(layer.dimensions).toEqual([{ id: 'Time', default: '2026-06-23' }]);
+    expect(layer.tileResourceUrls).toHaveLength(2);
+    expect(layer.tileResourceUrls?.map((r) => r.format)).toEqual(['image/jpeg', 'image/png']);
+    expect(layer.resourceUrlTemplate).toContain('{Time}'); // first, back-compat
+  });
+});
+
+describe('resolveWmtsTileUrlTemplate', () => {
+  const gibsLayer: WmtsLayer = {
+    id: 'MODIS',
+    styles: ['default'],
+    tileMatrixSets: ['GoogleMapsCompatible_Level9'],
+    formats: ['image/jpeg'],
+    dimensions: [{ id: 'Time', default: '2026-06-23' }],
+    tileResourceUrls: [
+      { format: 'image/jpeg', template: 'https://gibs/best/MODIS/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.jpeg' },
+      { format: 'image/png', template: 'https://gibs/best/MODIS/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png' },
+    ],
+  };
+
+  it('fills the Time dimension with its default and maps tile tokens to {z}/{y}/{x}', () => {
+    expect(
+      resolveWmtsTileUrlTemplate(gibsLayer, {
+        style: 'default',
+        tileMatrixSet: 'GoogleMapsCompatible_Level9',
+        format: 'image/jpeg',
+      }),
+    ).toBe('https://gibs/best/MODIS/default/2026-06-23/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg');
+  });
+
+  it('picks the ResourceURL matching the requested format', () => {
+    const url = resolveWmtsTileUrlTemplate(gibsLayer, {
+      style: 'default',
+      tileMatrixSet: 'GoogleMapsCompatible_Level9',
+      format: 'image/png',
+    });
+    expect(url?.endsWith('.png')).toBe(true);
+  });
+
+  it('resolves a dimension-less layer (Vexcel-shaped) cleanly', () => {
+    const vexcelLayer: WmtsLayer = {
+      id: 'bluesky-ultra-g',
+      styles: ['RGB'],
+      tileMatrixSets: ['bluesky-ultra-g'],
+      formats: ['image/png'],
+      tileResourceUrls: [
+        { format: 'image/png', template: 'https://api.gic.org/wmts/rest/{Layer}/{Style}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png' },
+      ],
+    };
+    expect(
+      resolveWmtsTileUrlTemplate(vexcelLayer, { style: 'RGB', tileMatrixSet: 'bluesky-ultra-g' }),
+    ).toBe('https://api.gic.org/wmts/rest/bluesky-ultra-g/RGB/bluesky-ultra-g/{z}/{y}/{x}.png');
+  });
+
+  it('returns null when the layer advertises no tile ResourceURL', () => {
+    expect(
+      resolveWmtsTileUrlTemplate(
+        { id: 'L', styles: [], tileMatrixSets: [], formats: [] },
+        { style: 'default', tileMatrixSet: 'WebMercatorQuad' },
+      ),
+    ).toBeNull();
   });
 });

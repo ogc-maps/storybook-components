@@ -68,7 +68,7 @@ const INFO_POSITION_OPTIONS = INFO_POSITIONS.map((pos) => ({
   label: pos.replace('-', ' ').replace(/^./, (c) => c.toUpperCase()),
 }));
 
-interface SavedSourceSummary { id: string; source_id: string; url: string; label: string | null; tile_matrix_set_id: string; source_type?: string; auth?: SourceAuth | null; metadata?: { thumbnail?: string; tileJson?: { tiles: string[]; name?: string; minzoom?: number; maxzoom?: number }; wmtsLayer?: string; wmtsStyle?: string; wmtsFormat?: string; wmtsTileMatrixSet?: string; wmtsTileSize?: number } | null }
+interface SavedSourceSummary { id: string; source_id: string; url: string; label: string | null; tile_matrix_set_id: string; source_type?: string; auth?: SourceAuth | null; metadata?: { thumbnail?: string; tileJson?: { tiles: string[]; name?: string; minzoom?: number; maxzoom?: number }; wmtsLayer?: string; wmtsStyle?: string; wmtsFormat?: string; wmtsTileMatrixSet?: string; wmtsTileSize?: number; wmtsTileUrlTemplate?: string } | null }
 
 type WizardStep = 'metadata' | 'info' | 'layers' | 'search-display' | 'imagery' | 'basemaps' | 'ui' | 'view' | 'review';
 

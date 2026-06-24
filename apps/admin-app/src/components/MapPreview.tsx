@@ -99,6 +99,7 @@ import { resolveEffectiveLayout } from './mapPreviewLayout';
 import { useBoxDraw } from '../hooks/useBoxDraw';
 import { usePolygonDraw } from '../hooks/usePolygonDraw';
 import { useQueryablesByLayer } from '../hooks/useQueryablesByLayer';
+import { proxifyWmtsSources } from '../utils/proxyPreview';
 import { exportConverters } from '@ogc-maps/storybook-components/utils';
 
 const coordinateFormats: CoordinateFormatOption[] = [
@@ -557,8 +558,11 @@ export function MapPreview({
     });
   }, [basemaps]);
 
-  const sourceUrlMap = useMemo(() => buildSourceUrlMap(sources), [sources]);
-  const transformRequest = useHeaderAuthTransformRequest(sources);
+  // Route proxied WMTS sources through the server proxy so the preview matches
+  // what published viewers get (tiles via /api/proxy, auth attached server-side).
+  const previewSources = useMemo(() => proxifyWmtsSources(sources), [sources]);
+  const sourceUrlMap = useMemo(() => buildSourceUrlMap(previewSources), [previewSources]);
+  const transformRequest = useHeaderAuthTransformRequest(previewSources);
 
   // Cleanup debounce timers on unmount
   useEffect(() => {
