@@ -615,6 +615,7 @@ export function SourcesPage() {
             wmtsFormat: newWmtsSource.format,
             wmtsTileMatrixSet: newWmtsSource.tileMatrixSet,
             wmtsTileSize: newWmtsSource.tileSize,
+            wmtsTileUrlTemplate: newWmtsSource.tileUrlTemplate,
           },
         }),
       });
@@ -657,6 +658,7 @@ export function SourcesPage() {
             wmtsFormat: editingWmtsSource.format,
             wmtsTileMatrixSet: editingWmtsSource.tileMatrixSet,
             wmtsTileSize: editingWmtsSource.tileSize,
+            wmtsTileUrlTemplate: editingWmtsSource.tileUrlTemplate,
           },
         }),
       });

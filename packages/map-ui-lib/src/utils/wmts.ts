@@ -29,14 +29,28 @@ export function isImagerySource(source: MapSource): boolean {
   return isWmtsSource(source) || (isOgcApiSource(source) && source.type === 'imagery');
 }
 
+/** A `<Dimension>` (e.g. `Time`) and its advertised default value. */
+export interface WmtsDimension {
+  id: string;
+  default?: string;
+}
+
+/** A tile `<ResourceURL>` template plus the image format it serves. */
+export interface WmtsTileResourceUrl {
+  template: string;
+  format?: string;
+}
+
 export interface WmtsLayer {
   id: string;
   title?: string;
   styles: string[];
   tileMatrixSets: string[];
   formats: string[];
-  /** RESTful tile URL template from ResourceURL, if present. */
-  resourceUrlTemplate?: string;
+  /** All tile ResourceURL templates, one per advertised format. */
+  tileResourceUrls?: WmtsTileResourceUrl[];
+  /** Dimensions (e.g. `Time`) advertised by the layer, with their defaults. */
+  dimensions?: WmtsDimension[];
 }
 
 export interface WmtsCapabilities {
@@ -56,13 +70,67 @@ export function buildWmtsTileUrlTemplate(
   auth?: SourceAuth,
 ): string {
   const base = capabilitiesUrl
-    .replace(/\/(?:get|wmts)?capabilities\.xml.*$/i, '')
+    // Strip a trailing GetCapabilities path — `.xml` is optional so this also
+    // handles `…/wmts/GetCapabilities` (no extension).
+    .replace(/\/(?:get|wmts)?capabilities(?:\.xml)?.*$/i, '')
     .replace(/\?.*$/, '')
-    .replace(/\/$/, '');
+    .replace(/\/$/, '')
+    // Drop a trailing version segment like `/1.0.0` that belongs to the
+    // capabilities path, not the REST tile path (e.g. GIBS `…/best/1.0.0`).
+    .replace(/\/\d+\.\d+\.\d+$/, '');
 
   const ext = formatToExtension(format);
   const template = `${base}/${encodeURIComponent(layer)}/${encodeURIComponent(style)}/${encodeURIComponent(tileMatrixSet)}/{z}/{y}/{x}.${ext}`;
   return appendAuth(template, auth);
+}
+
+/**
+ * Resolve a layer's advertised tile `<ResourceURL>` template into a
+ * MapLibre-ready URL template, filling WMTS placeholders. Prefer this over
+ * `buildWmtsTileUrlTemplate` (which hand-builds the path and guesses wrong for
+ * servers whose REST layout differs from `{base}/{layer}/{style}/{tms}/…`).
+ *
+ * Returns `null` when the layer advertises no tile ResourceURL, or when the
+ * template contains a placeholder we can't resolve (an unmodeled dimension) —
+ * in both cases the caller falls back to `buildWmtsTileUrlTemplate` rather than
+ * baking a wrong URL. The returned template carries no auth; the renderer
+ * appends query auth / injects header auth.
+ */
+export function resolveWmtsTileUrlTemplate(
+  layer: WmtsLayer,
+  opts: { style: string; tileMatrixSet: string; format?: string },
+): string | null {
+  const candidates = layer.tileResourceUrls ?? [];
+  if (candidates.length === 0) return null;
+  const chosen =
+    (opts.format ? candidates.find((c) => c.format === opts.format) : undefined) ?? candidates[0];
+
+  let url = chosen.template
+    .replace(/\{TileMatrixSet\}/gi, opts.tileMatrixSet)
+    .replace(/\{TileMatrix\}/gi, '{z}')
+    .replace(/\{TileRow\}/gi, '{y}')
+    .replace(/\{TileCol\}/gi, '{x}')
+    .replace(/\{Style\}/gi, opts.style)
+    .replace(/\{Layer\}/gi, layer.id);
+
+  // Fill remaining placeholders from the layer's advertised dimension defaults
+  // (e.g. {Time}). Keep the MapLibre {z}/{y}/{x} tokens; bail to null on any
+  // placeholder we can't resolve so the caller falls back instead of guessing.
+  const dimDefaults = new Map(
+    (layer.dimensions ?? []).map((d) => [d.id.toLowerCase(), d.default ?? 'default']),
+  );
+  let unresolved = false;
+  url = url.replace(/\{([^}]+)\}/g, (token, name: string) => {
+    if (/^[zyx]$/i.test(name)) return token;
+    const value = dimDefaults.get(name.toLowerCase());
+    if (value === undefined) {
+      unresolved = true;
+      return token;
+    }
+    return value;
+  });
+
+  return unresolved ? null : url;
 }
 
 function formatToExtension(format: string): string {
@@ -110,10 +178,31 @@ export function parseWmtsCapabilities(xml: string): WmtsCapabilities {
       .map((s) => s.textContent?.trim() ?? '')
       .filter(Boolean);
 
-    const resourceUrlEl = el.querySelector(':scope > ResourceURL[resourceType="tile"]');
-    const resourceUrlTemplate = resourceUrlEl?.getAttribute('template') ?? undefined;
+    const tileResourceUrls = Array.from(
+      el.querySelectorAll(':scope > ResourceURL[resourceType="tile"]'),
+    )
+      .map((r) => ({
+        template: r.getAttribute('template') ?? '',
+        format: r.getAttribute('format') ?? undefined,
+      }))
+      .filter((r) => r.template);
 
-    layers.push({ id, title, styles, tileMatrixSets, formats, resourceUrlTemplate });
+    const dimensions = Array.from(el.querySelectorAll(':scope > Dimension'))
+      .map((d) => ({
+        id: d.querySelector(':scope > Identifier')?.textContent?.trim() ?? '',
+        default: d.querySelector(':scope > Default')?.textContent?.trim() || undefined,
+      }))
+      .filter((d) => d.id);
+
+    layers.push({
+      id,
+      title,
+      styles,
+      tileMatrixSets,
+      formats,
+      tileResourceUrls,
+      dimensions,
+    });
   });
 
   return { layers };

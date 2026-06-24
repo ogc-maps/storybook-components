@@ -8,6 +8,11 @@ import connectPgSimple from 'connect-pg-simple';
 import bcrypt from 'bcryptjs';
 import { pool, initDb } from './db.js';
 import { inspectSource, normalizeUrl } from './inspect.js';
+import {
+  extractOrigin,
+  rewriteProxiedConfigUrls,
+  type ProxiedSourceInfo,
+} from './proxyRewrite.js';
 import { registerDataRoutes } from './dataRoutes.js';
 import { registerRowRoutes } from './rowRoutes.js';
 import { detectTileSourceType, appendAuth, authHeaders } from '@ogc-maps/storybook-components/hooks';
@@ -26,27 +31,6 @@ interface SourceRequestBody {
   proxy?: boolean;
 }
 
-// URL helpers for proxy rewriting
-const ORIGIN_RE = /^(https?:\/\/[^/?#]+)/;
-
-function extractOrigin(url: string): string {
-  return url.match(ORIGIN_RE)?.[1] ?? url.replace(/\/$/, '');
-}
-
-function extractUrlPath(url: string): string {
-  return (url.match(/^https?:\/\/[^/?#]+(.*?)(?:\?.*)?$/)?.[1] ?? '').replace(/\/$/, '');
-}
-
-function stripQueryParams(url: string, paramNames: Set<string>): string {
-  if (paramNames.size === 0) return url;
-  const qIdx = url.indexOf('?');
-  if (qIdx === -1) return url;
-  const base = url.substring(0, qIdx);
-  const params = new URLSearchParams(url.substring(qIdx + 1));
-  for (const name of paramNames) params.delete(name);
-  const qs = params.toString();
-  return qs ? `${base}?${qs}` : base;
-}
 
 // Augment session with our custom fields
 declare module 'express-session' {
@@ -272,7 +256,7 @@ app.get('/api/configs/:id', async (req, res) => {
 
       // Rewrite proxied source URLs so the client uses the proxy endpoint
       const config = (result.rows[0] as { config: Record<string, unknown> }).config;
-      const sources = config.sources as Array<{ id: string; url: string; auth?: unknown }> | undefined;
+      const sources = config.sources as Array<{ id: string; url: string; auth?: unknown; tileUrlTemplate?: string }> | undefined;
       if (sources && sources.length > 0) {
         const sourceIds = sources.map(s => s.id);
         const proxied = await pool.query(
@@ -281,7 +265,7 @@ app.get('/api/configs/:id', async (req, res) => {
         );
         if (proxied.rows.length > 0) {
           // Build lookup with pre-computed origin + params-to-strip per source
-          const proxiedSources = new Map<string, { url: string; origin: string; auth: SourceAuth | null; paramsToStrip: Set<string> }>();
+          const proxiedSources = new Map<string, ProxiedSourceInfo>();
           for (const r of proxied.rows as Array<{ source_id: string; url: string; auth: SourceAuth | null }>) {
             const paramsToStrip = new Set<string>();
             if (r.auth?.name) paramsToStrip.add(r.auth.name);
@@ -291,34 +275,11 @@ app.get('/api/configs/:id', async (req, res) => {
                 paramsToStrip.add(name);
               }
             }
-            proxiedSources.set(r.source_id, { url: r.url, origin: extractOrigin(r.url), auth: r.auth, paramsToStrip });
+            proxiedSources.set(r.source_id, { url: r.url, origin: extractOrigin(r.url), paramsToStrip });
           }
 
           const proxyBase = `${req.protocol}://${req.get('host')}/api/proxy`;
-
-          for (const source of sources) {
-            if (proxiedSources.has(source.id)) {
-              source.url = `${proxyBase}/${source.id}${extractUrlPath(proxiedSources.get(source.id)!.url)}`;
-              delete source.auth;
-            }
-          }
-
-          // Rewrite imagery layer tileUrlTemplates that reference proxied sources
-          const imageryLayers = config.imageryLayers as Array<{ sourceId?: string; tileUrlTemplate?: string }> | undefined;
-          if (imageryLayers) {
-            for (const layer of imageryLayers) {
-              if (!layer.tileUrlTemplate || !layer.sourceId) continue;
-              const sourceInfo = proxiedSources.get(layer.sourceId);
-              if (!sourceInfo) continue;
-
-              const tileOrigin = extractOrigin(layer.tileUrlTemplate);
-              // Only rewrite if tile URL shares the same origin as the source (SSRF protection)
-              if (tileOrigin !== sourceInfo.origin) continue;
-
-              const cleanTileUrl = stripQueryParams(layer.tileUrlTemplate, sourceInfo.paramsToStrip);
-              layer.tileUrlTemplate = `${proxyBase}/${layer.sourceId}${cleanTileUrl.substring(tileOrigin.length)}`;
-            }
-          }
+          rewriteProxiedConfigUrls(config as Parameters<typeof rewriteProxiedConfigUrls>[0], proxiedSources, proxyBase);
         }
       }
 

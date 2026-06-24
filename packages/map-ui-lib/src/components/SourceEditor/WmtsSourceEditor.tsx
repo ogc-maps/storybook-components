@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { WmtsSource, SourceAuth } from '../../types';
 import { FormField } from '../admin/FormField';
 import { useWmtsCapabilities } from '../../hooks/useWmtsCapabilities';
+import { resolveWmtsTileUrlTemplate } from '../../utils/wmts';
 
 export interface WmtsSourceEditorProps {
   value: WmtsSource;
@@ -22,6 +23,48 @@ export function WmtsSourceEditor({ value, onChange }: WmtsSourceEditorProps) {
   );
 
   const selectedLayer = capabilities?.layers.find((l) => l.id === value.layer);
+
+  // Once capabilities are loaded, resolve the layer's advertised tile ResourceURL
+  // into a concrete `tileUrlTemplate` (filling {TileMatrixSet}/{Style}/{Time}/…).
+  // The renderer prefers this over hand-building the URL. When capabilities aren't
+  // loaded (editing an existing source before "Fetch Layers"), leave any stored
+  // template untouched. Intentionally omits `value.tileUrlTemplate`/`onChange` from
+  // deps — the equality guard prevents an update loop.
+  useEffect(() => {
+    if (!selectedLayer) return;
+    const resolved = resolveWmtsTileUrlTemplate(selectedLayer, {
+      style: value.style,
+      tileMatrixSet: value.tileMatrixSet,
+      format: value.format,
+    });
+    if (resolved && resolved !== value.tileUrlTemplate) {
+      update({ tileUrlTemplate: resolved });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLayer, value.style, value.tileMatrixSet, value.format]);
+
+  // Selecting a layer also snaps style/tileMatrixSet/format to that layer's
+  // advertised values when the current ones aren't valid for it — otherwise the
+  // resolved tile URL would carry a default (e.g. WebMercatorQuad) the layer
+  // doesn't serve, producing 404s.
+  const selectLayer = (layerId: string) => {
+    const layer = capabilities?.layers.find((l) => l.id === layerId);
+    if (!layer) {
+      update({ layer: layerId });
+      return;
+    }
+    // Keep the current value if the layer still offers it, else snap to the
+    // layer's first advertised option (falling back to the current value when
+    // the layer advertises none).
+    const pick = (current: string, options: string[]) =>
+      options.includes(current) ? current : options[0] ?? current;
+    update({
+      layer: layerId,
+      style: pick(value.style, layer.styles),
+      tileMatrixSet: pick(value.tileMatrixSet, layer.tileMatrixSets),
+      format: pick(value.format, layer.formats),
+    });
+  };
 
   const handleAuthTypeChange = (newType: string) => {
     if (newType === 'none') {
@@ -91,7 +134,7 @@ export function WmtsSourceEditor({ value, onChange }: WmtsSourceEditorProps) {
         {capabilities ? (
           <select
             value={value.layer}
-            onChange={(e) => update({ layer: e.target.value, style: 'default' })}
+            onChange={(e) => selectLayer(e.target.value)}
             className={`${inputClass} mapui:w-full`}
           >
             <option value="">— Select a layer —</option>

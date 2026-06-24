@@ -20,6 +20,7 @@ export interface SavedWmtsSourceFields {
     wmtsFormat?: string;
     wmtsTileMatrixSet?: string;
     wmtsTileSize?: number;
+    wmtsTileUrlTemplate?: string;
   } | null;
 }
 
@@ -46,6 +47,7 @@ export function savedSourceToWmts(s: SavedWmtsSourceFields): WmtsSource {
     format: s.metadata?.wmtsFormat ?? 'image/png',
     tileMatrixSet: s.metadata?.wmtsTileMatrixSet ?? s.tile_matrix_set_id ?? 'WebMercatorQuad',
     tileSize: s.metadata?.wmtsTileSize ?? 256,
+    tileUrlTemplate: s.metadata?.wmtsTileUrlTemplate,
     auth: s.auth ?? undefined,
     proxy: s.proxy,
   };
