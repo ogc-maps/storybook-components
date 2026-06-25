@@ -227,6 +227,10 @@ app.get('/api/configs/published', async (_req, res) => {
 // GET /api/configs/:id — get by UUID or by published name
 app.get('/api/configs/:id', async (req, res) => {
   try {
+    // Config responses must never be cached: a PUT is immediately live, so a
+    // stale cached body (browser or upstream gateway) makes saved changes
+    // "disappear" on reload. Force revalidation on every request.
+    res.set('Cache-Control', 'no-store');
     if (UUID_REGEX.test(req.params.id)) {
       // UUID lookup — return full config row
       const result = await pool.query('SELECT * FROM map_admin.map_configs WHERE id = $1', [req.params.id]);
