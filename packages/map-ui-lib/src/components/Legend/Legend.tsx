@@ -23,20 +23,20 @@ export interface LegendProps {
   className?: string;
 }
 
-const OPACITY_KEY: Record<string, string> = {
-  fill: 'fill-opacity',
-  line: 'line-opacity',
-  circle: 'circle-opacity',
-  symbol: 'icon-opacity',
-};
-
-function getLayerOpacity(layer: LayerConfig): number {
-  const style = layer.styles?.[0];
-  if (!style) return 1;
-  const key = OPACITY_KEY[style.type];
-  if (!key) return 1;
-  const val = (style.paint as Record<string, unknown>)?.[key];
-  return typeof val === 'number' ? val : 1;
+/**
+ * The single legend opacity slider is a 0–1 MULTIPLIER on each style's
+ * configured base opacity (the actual scaling happens in the consumer, e.g.
+ * map-client's `setLayerOpacity`). The slider's displayed position is the
+ * layer's `_opacityFactor` — a runtime field the consumer stitches onto the
+ * layer so display (here) and write (the store) stay consistent across all of
+ * a layer's styles, instead of reading only `styles[0]`.
+ *
+ * When `_opacityFactor` is absent (the slider has never been touched, or the
+ * consumer tracks opacity out-of-band) the slider sits at its neutral 100%.
+ */
+export function getLayerOpacity(layer: LayerConfig): number {
+  const factor = (layer as LayerConfig & { _opacityFactor?: number })._opacityFactor;
+  return typeof factor === 'number' ? factor : 1;
 }
 
 function Swatch({

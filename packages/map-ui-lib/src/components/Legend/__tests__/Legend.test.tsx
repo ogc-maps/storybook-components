@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Legend } from '../Legend';
+import { Legend, getLayerOpacity } from '../Legend';
 import type { LayerConfig } from '../../../types';
 
 function makeLayer(id: string, shape: 'square' | 'circle' | 'line' | 'outline-square' | 'outline-circle', extra: Record<string, unknown> = {}): LayerConfig {
@@ -109,5 +109,39 @@ describe('Legend Swatch', () => {
     );
     expect(html).toMatch(/<line\b/);
     expect(html).toContain('stroke-dasharray="4,2"');
+  });
+});
+
+describe('Legend getLayerOpacity (slider read side)', () => {
+  // The single legend slider value is the layer's runtime `_opacityFactor` (the
+  // 0–1 multiplier position), kept consistent with the write side in the store.
+  // It is NOT a per-style absolute opacity read off styles[0] — that was the #6
+  // read/write asymmetry bug.
+  const baseLayer = (runtime: Record<string, unknown> = {}): LayerConfig =>
+    ({
+      id: 'a',
+      sourceId: 'demo',
+      collection: 'demo',
+      label: 'a',
+      visible: true,
+      dataMode: 'vector-tiles',
+      legend: { entries: [{ label: 'a', color: '#1d4ed8' }] },
+      // Outline-only polygon: fill base 0 (click-selection) + line base 1.
+      styles: [
+        { type: 'fill', paint: { 'fill-color': '#000', 'fill-opacity': 0 } },
+        { type: 'line', paint: { 'line-color': '#f00', 'line-opacity': 1 } },
+      ],
+      ...runtime,
+    }) as LayerConfig;
+
+  it('returns the runtime _opacityFactor when present', () => {
+    expect(getLayerOpacity(baseLayer({ _opacityFactor: 0.4 }))).toBe(0.4);
+    expect(getLayerOpacity(baseLayer({ _opacityFactor: 0 }))).toBe(0);
+  });
+
+  it('falls back to neutral 1 when _opacityFactor is absent (not styles[0] fill base 0)', () => {
+    // The old read returned styles[0]'s fill-opacity (0 here) and white-screened
+    // the slider at 0% for an outline-only layer. The multiplier-neutral 1 is right.
+    expect(getLayerOpacity(baseLayer())).toBe(1);
   });
 });

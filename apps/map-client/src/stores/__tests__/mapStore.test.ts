@@ -75,11 +75,66 @@ describe('mapStore — layers', () => {
     expect(useMapStore.getState().layers.map((l) => l.id)).toEqual(['l2', 'l1']);
   });
 
-  it('setLayerOpacity rewrites paint opacity on styled layers', () => {
+  it('setLayerOpacity scales paint opacity by the slider factor (base 1)', () => {
     useMapStore.getState().setLayerOpacity('l1', 0.25);
+    const layer = useMapStore.getState().layers.find((l) => l.id === 'l1')!;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((layer.styles![0] as any).paint['fill-opacity']).toBe(0.25);
+    // The slider position is recorded on the layer so the Legend can display it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((layer as any)._opacityFactor).toBe(0.25);
+  });
+
+  it('setLayerOpacity multiplies the original base, not the just-applied value', () => {
+    // Two consecutive drags must both be relative to the configured base (1),
+    // not compound off the previous result.
+    useMapStore.getState().setLayerOpacity('l1', 0.5);
+    useMapStore.getState().setLayerOpacity('l1', 0.5);
     const styles = useMapStore.getState().layers.find((l) => l.id === 'l1')!.styles!;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((styles[0] as any).paint['fill-opacity']).toBe(0.25);
+    expect((styles[0] as any).paint['fill-opacity']).toBe(0.5);
+  });
+
+  it('outline-only polygon keeps a visible outline across slider positions (#6)', () => {
+    // fill base 0 (transparent click-selection fill) + line base 1 (the outline).
+    useMapStore.setState({
+      layers: [
+        makeLayer({
+          id: 'outline',
+          visible: true,
+          styles: [
+            { type: 'fill', paint: { 'fill-color': '#000', 'fill-opacity': 0 } },
+            { type: 'line', paint: { 'line-color': '#f00', 'line-opacity': 1 } },
+          ],
+        }),
+      ],
+    });
+
+    const stylesAt = (factor: number) => {
+      useMapStore.getState().setLayerOpacity('outline', factor);
+      return useMapStore.getState().layers.find((l) => l.id === 'outline')!.styles!;
+    };
+
+    for (const factor of [0, 0.5, 1]) {
+      const styles = stylesAt(factor);
+      // Fill stays 0 at every slider position — never destroys click-selection.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((styles[0] as any).paint['fill-opacity']).toBe(0);
+      // Outline scales with the slider but only vanishes at a true 0.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((styles[1] as any).paint['line-opacity']).toBe(1 * factor);
+      if (factor > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        expect((styles[1] as any).paint['line-opacity']).toBeGreaterThan(0);
+      }
+    }
+
+    // Slider back to 100% restores the exact designed look.
+    const restored = stylesAt(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((restored[0] as any).paint['fill-opacity']).toBe(0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((restored[1] as any).paint['line-opacity']).toBe(1);
   });
 });
 
