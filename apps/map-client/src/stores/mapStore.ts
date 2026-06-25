@@ -69,7 +69,13 @@ interface MapState {
   setLayerVisibility: (layerId: string, visible: boolean) => void;
   reorderLayers: (layerIds: string[]) => void;
   setActiveBasemap: (basemapId: string) => void;
-  setLayerOpacity: (layerId: string, opacity: number) => void;
+  /**
+   * Set the legend opacity slider for a vector layer. `factor` is a 0–1
+   * MULTIPLIER applied to each style's configured base opacity — it does not
+   * overwrite per-style opacities, so an outline-only polygon (fill base 0 +
+   * line base 1) keeps its visible outline and its transparent click-fill.
+   */
+  setLayerOpacity: (layerId: string, factor: number) => void;
   setLayerFilters: (layerId: string, filters: SearchFilterValues) => void;
   setLayerCql2Filter: (layerId: string, cql2: CQL2Expression | null) => void;
   clearLayerFilters: (layerId: string) => void;
@@ -98,6 +104,74 @@ interface MapState {
   clearSearchHighlight: () => void;
 
   hydrate: (config: MapConfig) => void;
+}
+
+/** MapLibre opacity paint key for each style type. */
+const OPACITY_KEYS: Record<string, string> = {
+  fill: 'fill-opacity',
+  line: 'line-opacity',
+  circle: 'circle-opacity',
+  symbol: 'icon-opacity',
+};
+
+/**
+ * Runtime-only fields the store stitches onto each layer to drive the single
+ * legend opacity slider. `_baseOpacities` snapshots every style's
+ * originally-configured opacity (by style index) so the slider can act as a
+ * MULTIPLIER on the *base* design rather than overwriting it. `_opacityFactor`
+ * is the slider's 0–1 position, so the read side (Legend) and the write side
+ * (this store) stay consistent.
+ *
+ * These are not part of the Zod `MapConfig` contract — they never round-trip
+ * through the schema; they live only on the in-memory store copy of a layer.
+ */
+type LayerOpacityRuntime = {
+  _baseOpacities?: (number | undefined)[];
+  _opacityFactor?: number;
+};
+
+function readStyleOpacity(style: { type: string; paint?: Record<string, unknown> }): number | undefined {
+  const key = OPACITY_KEYS[style.type];
+  if (!key) return undefined;
+  const val = style.paint?.[key];
+  return typeof val === 'number' ? val : undefined;
+}
+
+/**
+ * Capture each style's configured base opacity once. Idempotent: if the layer
+ * already carries `_baseOpacities` (i.e. the slider has been touched before),
+ * the original snapshot is preserved so repeated drags stay relative to the
+ * design, not to the just-applied value.
+ */
+function withBaseOpacities<T extends LayerConfig>(layer: T): T {
+  const runtime = layer as T & LayerOpacityRuntime;
+  if (runtime._baseOpacities || !layer.styles?.length) return layer;
+  return {
+    ...layer,
+    _baseOpacities: layer.styles.map((s) => readStyleOpacity(s) ?? 1),
+  } as T;
+}
+
+/**
+ * Apply the legend slider `factor` (0–1) as a multiplier on each style's base
+ * opacity. A style configured at `fill-opacity: 0` (e.g. a click-selection
+ * fill behind an outline) stays 0 at every slider position; a base `1` outline
+ * scales independently. Slider at 1 restores the exact configured look.
+ */
+function applyOpacityFactor<T extends LayerConfig>(layer: T, factor: number): T {
+  const withBase = withBaseOpacities(layer) as T & LayerOpacityRuntime;
+  if (!withBase.styles?.length) return withBase;
+  const base = withBase._baseOpacities ?? [];
+  return {
+    ...withBase,
+    _opacityFactor: factor,
+    styles: withBase.styles.map((style, i) => {
+      const key = OPACITY_KEYS[style.type];
+      if (!key) return style;
+      const baseOpacity = base[i] ?? 1;
+      return { ...style, paint: { ...style.paint, [key]: baseOpacity * factor } } as typeof style;
+    }),
+  } as T;
 }
 
 export const useMapStore = create<MapState>((set) => ({
@@ -207,28 +281,13 @@ export const useMapStore = create<MapState>((set) => ({
   setActiveBasemap: (basemapId) =>
     set({ activeBasemapId: basemapId }),
 
-  setLayerOpacity: (layerId, opacity) =>
-    set((state) => {
-      const opacityKeys: Record<string, string> = {
-        fill: 'fill-opacity',
-        line: 'line-opacity',
-        circle: 'circle-opacity',
-        symbol: 'icon-opacity',
-      };
-      return {
-        layers: state.layers.map((layer) => {
-          if (layer.id !== layerId || !layer.styles?.length) return layer;
-          return {
-            ...layer,
-            styles: layer.styles.map((style) => {
-              const key = opacityKeys[style.type];
-              if (!key) return style;
-              return { ...style, paint: { ...style.paint, [key]: opacity } } as typeof style;
-            }),
-          };
-        }),
-      };
-    }),
+  setLayerOpacity: (layerId, factor) =>
+    set((state) => ({
+      layers: state.layers.map((layer) => {
+        if (layer.id !== layerId || !layer.styles?.length) return layer;
+        return applyOpacityFactor(layer, factor);
+      }),
+    })),
 
   setLayerFilters: (layerId, filters) =>
     set((state) => ({
@@ -300,7 +359,9 @@ export const useMapStore = create<MapState>((set) => ({
   hydrate: (config) =>
     set({
       viewState: config.initialView,
-      layers: config.layers,
+      // Snapshot each layer's per-style base opacities at hydrate so the legend
+      // slider acts as a multiplier on the original design (see applyOpacityFactor).
+      layers: config.layers.map((l) => withBaseOpacities(l)),
       imageryLayers: config.imageryLayers ?? [],
       basemaps: config.basemaps,
       activeBasemapId: config.basemaps[0]?.id || '',
