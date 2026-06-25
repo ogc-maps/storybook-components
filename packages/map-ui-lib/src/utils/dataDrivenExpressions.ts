@@ -70,6 +70,30 @@ export function parseMatchExpression<TOutput>(
   return { property, pairs, fallback };
 }
 
+/**
+ * Builds a numeric ramp of `count` evenly-spaced values for auto-populating a
+ * data-driven number editor (e.g. line-width-by-category). Values run from
+ * `minWidth` to `maxWidth` inclusive, rounded to 1 decimal place.
+ *
+ * - count 0 → []
+ * - count 1 → [minWidth]
+ * - otherwise → linearly spaced minWidth..maxWidth
+ *
+ * If `maxWidth` isn't provided, it defaults to `minWidth + count - 1` so each
+ * category gets a visibly distinct width even without explicit bounds.
+ */
+export function buildNumberRamp(count: number, minWidth = 1, maxWidth?: number): number[] {
+  if (count <= 0) return [];
+  const lo = Number.isFinite(minWidth) ? minWidth : 1;
+  const hi = maxWidth !== undefined && Number.isFinite(maxWidth) ? maxWidth : lo + count - 1;
+  if (count === 1) return [lo];
+  const span = hi - lo;
+  return Array.from({ length: count }, (_, i) => {
+    const v = lo + (span * i) / (count - 1);
+    return Math.round(v * 10) / 10;
+  });
+}
+
 /** Builds a `match` (or `case`, if any pair uses contains) expression. */
 export function buildMatchExpression<TOutput>(
   property: string,
