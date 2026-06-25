@@ -160,6 +160,36 @@ export function buildDefaultStylesForGeometryTypes(geomTypes: string[]): StyleCo
 }
 
 /**
+ * Decides what to do with a layer's styles when its collection geometry changes
+ * and a fresh set of geometry-appropriate default styles has been detected.
+ *
+ * - `'apply'`: there were no styles, OR the current styles are exactly the ones
+ *   we previously auto-applied (still untouched defaults) — safe to replace.
+ * - `'keep'`: the current styles already equal the newly-detected defaults —
+ *   nothing to do.
+ * - `'warn'`: the user customized the styles, so replacing would clobber their
+ *   work — surface a warning and let them choose.
+ *
+ * `lastAutoApplied` is the styles array we last auto-applied (or null if we
+ * never have). Comparison is structural (JSON), which is sufficient for these
+ * plain config objects.
+ */
+export function resolveStyleReapplyAction(
+  current: StyleConfig[] | undefined,
+  detected: StyleConfig[],
+  lastAutoApplied: StyleConfig[] | null,
+): 'apply' | 'keep' | 'warn' {
+  if (detected.length === 0) return 'keep';
+  if (!current || current.length === 0) return 'apply';
+  const currentJson = JSON.stringify(current);
+  if (currentJson === JSON.stringify(detected)) return 'keep';
+  if (lastAutoApplied !== null && currentJson === JSON.stringify(lastAutoApplied)) {
+    return 'apply';
+  }
+  return 'warn';
+}
+
+/**
  * Detects the geometry type for a collection and returns the corresponding
  * MapLibre style type. Tries queryables first, falls back to fetching one feature.
  * Returns null if detection fails.
