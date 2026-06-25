@@ -196,12 +196,17 @@ export function sDwithin(property: string, geometry: CQL2Geometry, distance: num
       properties: {},
       geometry: geometry as GeoJSON.Geometry,
     };
-    const buffered = turfBuffer(feature, value, { units: turfUnits });
+    let buffered: ReturnType<typeof turfBuffer> | undefined;
+    try {
+      buffered = turfBuffer(feature, value, { units: turfUnits });
+    } catch {
+      /* invalid geometry — fall through to plain sIntersects */
+    }
     if (buffered) {
       return sIntersects(property, buffered.geometry as CQL2Geometry);
     }
   }
-  // Fallback: distance=0 or buffer failed — use plain s_intersects
+  // Fallback: distance=0, null return, or buffer exception — use plain s_intersects
   return sIntersects(property, geometry);
 }
 
