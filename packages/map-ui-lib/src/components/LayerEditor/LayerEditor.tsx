@@ -452,12 +452,23 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
           />
           {(() => {
             const styles = value.styles ?? [defaultFill];
+            const moveStyle = (from: number, to: number) => {
+              const current = value.styles ?? styles;
+              if (to < 0 || to >= current.length) return;
+              const next = [...current];
+              [next[from], next[to]] = [next[to], next[from]];
+              update({ styles: next });
+            };
             const renderCards = () =>
               styles.map((style, i) => (
                 <StyleCard
                   key={i}
                   index={i}
                   style={style}
+                  isFirst={i === 0}
+                  isLast={i === styles.length - 1}
+                  onMoveUp={styles.length > 1 ? () => moveStyle(i, i - 1) : undefined}
+                  onMoveDown={styles.length > 1 ? () => moveStyle(i, i + 1) : undefined}
                   onRemove={
                     (value.styles?.length ?? 0) > 0
                       ? () => update({ styles: removeAt(value.styles, i) })

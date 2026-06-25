@@ -6,6 +6,14 @@ export interface StyleCardProps {
   index: number;
   style: StyleConfig;
   onRemove?: () => void;
+  /** Move this style one slot earlier in the layer's styles array (undefined/disabled at the top). */
+  onMoveUp?: () => void;
+  /** Move this style one slot later in the layer's styles array (undefined/disabled at the bottom). */
+  onMoveDown?: () => void;
+  /** Whether this card is the first in the list (disables the up button). */
+  isFirst?: boolean;
+  /** Whether this card is the last in the list (disables the down button). */
+  isLast?: boolean;
   children: ReactNode;
 }
 
@@ -36,7 +44,16 @@ function TypeIcon({ type }: { type: StyleType }) {
   );
 }
 
-export function StyleCard({ index, style, onRemove, children }: StyleCardProps) {
+export function StyleCard({
+  index,
+  style,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
+  children,
+}: StyleCardProps) {
   const visual = TYPE_VISUAL[style.type];
   const filterChips = style.geometryFilter ?? [];
 
@@ -64,6 +81,30 @@ export function StyleCard({ index, style, onRemove, children }: StyleCardProps) 
           <span className="mapui:w-20 mapui:shrink-0">
             <StylePreview style={style} />
           </span>
+          {(onMoveUp || onMoveDown) && (
+            <span className="mapui:flex mapui:flex-col mapui:gap-0.5">
+              <button
+                type="button"
+                onClick={onMoveUp}
+                disabled={isFirst || !onMoveUp}
+                aria-label="Move style up"
+                title="Move style up"
+                className="mapui:cursor-pointer mapui:rounded mapui:border-none mapui:bg-transparent mapui:px-1 mapui:text-[10px] mapui:leading-none mapui:text-slate-400 hover:mapui:text-slate-600 disabled:mapui:opacity-30"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                onClick={onMoveDown}
+                disabled={isLast || !onMoveDown}
+                aria-label="Move style down"
+                title="Move style down"
+                className="mapui:cursor-pointer mapui:rounded mapui:border-none mapui:bg-transparent mapui:px-1 mapui:text-[10px] mapui:leading-none mapui:text-slate-400 hover:mapui:text-slate-600 disabled:mapui:opacity-30"
+              >
+                ▼
+              </button>
+            </span>
+          )}
           {onRemove && (
             <button
               type="button"
