@@ -95,32 +95,71 @@ interface RawCollection {
   itemType?: string;
 }
 
+interface OgcLink {
+  rel?: string;
+  href?: string;
+  type?: string;
+}
+
+/** Returns the href of the `next` page link, if any, preferring a JSON link. */
+export function findNextLink(links: unknown, currentUrl: string): string | null {
+  if (!Array.isArray(links)) return null;
+  const nextLinks = (links as OgcLink[]).filter(
+    (l) => l && l.rel === 'next' && typeof l.href === 'string',
+  );
+  if (nextLinks.length === 0) return null;
+  // Prefer an explicitly JSON-typed next link; otherwise take the first.
+  const jsonNext = nextLinks.find((l) => (l.type ?? '').includes('json'));
+  const href = (jsonNext ?? nextLinks[0]).href as string;
+  try {
+    // Resolve relative hrefs against the page we just fetched.
+    return new URL(href, currentUrl).toString();
+  } catch {
+    return href;
+  }
+}
+
+function mapRawCollections(collections: unknown): RawCollection[] {
+  if (!Array.isArray(collections)) return [];
+  return collections.map((c: Record<string, unknown>) => ({
+    id: String(c.id ?? ''),
+    title: typeof c.title === 'string' ? c.title : undefined,
+    description: typeof c.description === 'string' ? c.description : undefined,
+    extent: c.extent as CollectionMeta['extent'],
+    itemType: typeof c.itemType === 'string' ? c.itemType : undefined,
+  }));
+}
+
+// Safety cap so a server that always returns a `next` link can't loop forever.
+const MAX_COLLECTION_PAGES = 50;
+
 async function fetchCollectionsList(
   baseUrl: string,
   auth?: SourceAuth,
 ): Promise<{ collections: RawCollection[]; error?: string }> {
   try {
-    const data = (await fetchJson(`${baseUrl}/collections?f=json`, auth)) as Record<
-      string,
-      unknown
-    >;
-    const collections = data.collections;
-    if (!Array.isArray(collections)) {
-      return {
-        collections: [],
-        error: 'Unexpected collections response format',
-      };
+    const all: RawCollection[] = [];
+    const seenIds = new Set<string>();
+    let nextUrl: string | null = `${baseUrl}/collections?f=json`;
+    let pages = 0;
+
+    while (nextUrl && pages < MAX_COLLECTION_PAGES) {
+      const currentUrl: string = nextUrl;
+      const data = (await fetchJson(currentUrl, auth)) as Record<string, unknown>;
+      if (pages === 0 && !Array.isArray(data.collections)) {
+        return { collections: [], error: 'Unexpected collections response format' };
+      }
+      for (const col of mapRawCollections(data.collections)) {
+        if (col.id && !seenIds.has(col.id)) {
+          seenIds.add(col.id);
+          all.push(col);
+        }
+      }
+      nextUrl = findNextLink(data.links, currentUrl);
+      pages += 1;
     }
-    return {
-      collections: collections.map((c: Record<string, unknown>) => ({
-        id: String(c.id ?? ''),
-        title: typeof c.title === 'string' ? c.title : undefined,
-        description:
-          typeof c.description === 'string' ? c.description : undefined,
-        extent: c.extent as CollectionMeta['extent'],
-        itemType: typeof c.itemType === 'string' ? c.itemType : undefined,
-      })),
-    };
+
+    return { collections: all };
   } catch (err) {
     return { collections: [], error: errorMessage(err) };
   }

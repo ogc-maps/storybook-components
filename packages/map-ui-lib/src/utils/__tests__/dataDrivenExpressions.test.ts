@@ -5,6 +5,7 @@ import {
   buildMatchExpression,
   parseInterpolateExpression,
   buildInterpolateExpression,
+  buildNumberRamp,
   type MatchPair,
   type InterpolateStop,
 } from '../dataDrivenExpressions';
@@ -100,6 +101,65 @@ describe('interpolate expression roundtrip', () => {
       { stop: 0, output: 1 },
       { stop: 10, output: 5 },
     ]);
+  });
+});
+
+describe('hidden / transparent color fallback', () => {
+  const colorParser = (raw: unknown): string => (typeof raw === 'string' ? raw : '#000000');
+  const HIDDEN = 'rgba(0,0,0,0)';
+
+  it('round-trips a fully-transparent fallback through build -> parse -> build', () => {
+    const pairs: MatchPair<string>[] = [
+      { value: 'park', output: '#00ff00', matchType: 'equals' },
+    ];
+    const expr = buildMatchExpression('kind', pairs, HIDDEN, (v) => v);
+    // Fallback is the last element of the match expression.
+    expect(expr[expr.length - 1]).toBe(HIDDEN);
+
+    const parsed = parseMatchExpression(expr, colorParser, '#000000');
+    expect(parsed.fallback).toBe(HIDDEN);
+    expect(parsed.pairs).toEqual(pairs);
+
+    const rebuilt = buildMatchExpression(parsed.property, parsed.pairs, parsed.fallback, (v) => v);
+    expect(rebuilt).toEqual(expr);
+  });
+});
+
+describe('buildNumberRamp', () => {
+  it('returns an empty ramp for zero categories', () => {
+    expect(buildNumberRamp(0)).toEqual([]);
+    expect(buildNumberRamp(-3)).toEqual([]);
+  });
+
+  it('returns [min] for a single category', () => {
+    expect(buildNumberRamp(1, 2)).toEqual([2]);
+  });
+
+  it('spaces values evenly between min and max', () => {
+    expect(buildNumberRamp(3, 1, 5)).toEqual([1, 3, 5]);
+    expect(buildNumberRamp(5, 0, 10)).toEqual([0, 2.5, 5, 7.5, 10]);
+  });
+
+  it('defaults max to min + count - 1 when omitted, producing distinct widths', () => {
+    expect(buildNumberRamp(4, 1)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('rounds to one decimal place', () => {
+    const ramp = buildNumberRamp(3, 1, 2);
+    expect(ramp).toEqual([1, 1.5, 2]);
+  });
+
+  it('produces a usable ramp shape for an auto-populated match expression', () => {
+    const values = ['a', 'b', 'c'];
+    const outputs = buildNumberRamp(values.length, 1, 7);
+    const pairs: MatchPair<number>[] = values.map((v, i) => ({
+      value: v,
+      output: outputs[i],
+      matchType: 'equals',
+    }));
+    const expr = buildMatchExpression('kind', pairs, 1, (v) => v);
+    const parsed = parseMatchExpression(expr, (raw) => Number(raw), 0);
+    expect(parsed.pairs.map((p) => p.output)).toEqual([1, 4, 7]);
   });
 });
 

@@ -26,6 +26,7 @@ import {
   geometryTypeToStyleTypes,
   toAvailableProperties,
   getGeometryPropertyNames,
+  resolveStyleReapplyAction,
 } from '../../utils/queryableHelpers';
 
 function replaceAt<T>(arr: T[] | undefined, index: number, value: T): T[] {
@@ -108,6 +109,13 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
   const [, setSuggestedStyles] = useState<StyleConfig[]>([]);
   // All suitable style types for the detected geometry (e.g. ['circle', 'symbol'] for Point)
   const [suitableStyleTypes, setSuitableStyleTypes] = useState<StyleConfig['type'][]>([]);
+  // True when the collection's geometry changed but the user had customized the
+  // styles, so we can't safely auto-replace them. Surfaces an inline warning + re-detect button.
+  const [geometryMismatch, setGeometryMismatch] = useState<{ styles: StyleConfig[]; types: StyleConfig['type'][] } | null>(null);
+
+  // Remembers the exact styles array we last auto-applied, so a later collection
+  // change can tell auto-generated defaults (safe to replace) from user edits (don't clobber).
+  const lastAutoAppliedRef = useRef<StyleConfig[] | null>(null);
 
   useEffect(() => {
     if (!queryables) {
@@ -120,8 +128,22 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
       const styles = buildDefaultStylesForGeometryTypes(geomTypes);
       setSuggestedStyles(styles);
       setSuitableStyleTypes(styleTypes);
-      if (styles.length > 0 && !valueRef.current.styles?.length) {
+      const current = valueRef.current.styles;
+      const action = resolveStyleReapplyAction(current, styles, lastAutoAppliedRef.current);
+      if (action === 'keep') {
+        // Already matches detected defaults (or nothing to apply) — sync the ref.
+        if (styles.length > 0 && JSON.stringify(current) === JSON.stringify(styles)) {
+          lastAutoAppliedRef.current = styles;
+        }
+        setGeometryMismatch(null);
+      } else if (action === 'apply') {
+        // No styles yet, or current styles are still untouched auto-defaults.
+        lastAutoAppliedRef.current = styles;
+        setGeometryMismatch(null);
         onChangeRef.current({ ...valueRef.current, styles });
+      } else {
+        // User-customized styles + a geometry change → warn, don't clobber.
+        setGeometryMismatch({ styles, types: styleTypes });
       }
     };
 
@@ -181,7 +203,18 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
   useEffect(() => {
     setSuggestedStyles([]);
     setSuitableStyleTypes([]);
+    setGeometryMismatch(null);
   }, [baseUrl, collection]);
+
+  // Apply the newly-detected default styles, overwriting user customizations
+  // (only invoked from the explicit "re-detect" button in the mismatch warning).
+  const applyDetectedStyles = () => {
+    if (!geometryMismatch) return;
+    lastAutoAppliedRef.current = geometryMismatch.styles;
+    setSuitableStyleTypes(geometryMismatch.types);
+    setGeometryMismatch(null);
+    onChangeRef.current({ ...valueRef.current, styles: geometryMismatch.styles });
+  };
 
   return (
     <div className="mapui:flex mapui:flex-col mapui:gap-3">
@@ -387,6 +420,31 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
 
       {showSection('style') && <CollapsibleSection title="Style">
         <div className="mapui:flex mapui:flex-col mapui:gap-4">
+          {geometryMismatch && (
+            <div className="mapui:flex mapui:flex-col mapui:gap-2 mapui:rounded mapui:border mapui:border-amber-300 mapui:bg-amber-50 mapui:p-2 mapui:text-xs mapui:text-amber-800">
+              <span>
+                This collection's geometry changed and your current styles may not match it
+                (e.g. a fill style can't render points). Re-detect to replace them with
+                geometry-appropriate defaults, or keep your customizations.
+              </span>
+              <div className="mapui:flex mapui:gap-2">
+                <button
+                  type="button"
+                  onClick={applyDetectedStyles}
+                  className="mapui:cursor-pointer mapui:rounded mapui:border mapui:border-amber-400 mapui:bg-white mapui:px-2 mapui:py-0.5 mapui:text-amber-800 hover:mapui:bg-amber-100"
+                >
+                  Re-detect styles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGeometryMismatch(null)}
+                  className="mapui:cursor-pointer mapui:rounded mapui:px-2 mapui:py-0.5 mapui:text-amber-700 hover:mapui:underline"
+                >
+                  Keep mine
+                </button>
+              </div>
+            </div>
+          )}
           <StylePresetSection
             suitableStyleTypes={suitableStyleTypes}
             styles={value.styles}
@@ -394,12 +452,23 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
           />
           {(() => {
             const styles = value.styles ?? [defaultFill];
+            const moveStyle = (from: number, to: number) => {
+              const current = value.styles ?? styles;
+              if (to < 0 || to >= current.length) return;
+              const next = [...current];
+              [next[from], next[to]] = [next[to], next[from]];
+              update({ styles: next });
+            };
             const renderCards = () =>
               styles.map((style, i) => (
                 <StyleCard
                   key={i}
                   index={i}
                   style={style}
+                  isFirst={i === 0}
+                  isLast={i === styles.length - 1}
+                  onMoveUp={styles.length > 1 ? () => moveStyle(i, i - 1) : undefined}
+                  onMoveDown={styles.length > 1 ? () => moveStyle(i, i + 1) : undefined}
                   onRemove={
                     (value.styles?.length ?? 0) > 0
                       ? () => update({ styles: removeAt(value.styles, i) })

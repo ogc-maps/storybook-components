@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { inspectSourceClientSide } from '../inspectSource.js';
+import { inspectSourceClientSide, findNextLink } from '../inspectSource.js';
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -368,6 +368,53 @@ describe('inspectSourceClientSide', () => {
       expect(result.collections[0]!.id).toBe('42');
     });
 
+    it('follows `next` links to gather all paginated collections', async () => {
+      fetchMock = fetchByUrl([
+        {
+          match: /\/conformance/,
+          response: jsonResponse({ conformsTo: [] }),
+        },
+        // Page 1 — first collection plus a `next` link to page 2.
+        {
+          match: /\/collections\?f=json$/,
+          response: jsonResponse({
+            collections: [{ id: 'page1-a' }],
+            links: [
+              {
+                rel: 'next',
+                type: 'application/json',
+                href: 'http://localhost:8000/collections?f=json&offset=1',
+              },
+            ],
+          }),
+        },
+        // Page 2 — second collection, no further `next`.
+        {
+          match: /\/collections\?f=json&offset=1$/,
+          response: jsonResponse({
+            collections: [{ id: 'page2-b' }],
+            links: [{ rel: 'self', href: 'http://localhost:8000/collections?f=json&offset=1' }],
+          }),
+        },
+        {
+          match: /items\?limit=0/,
+          response: jsonResponse({ numberMatched: 1 }),
+        },
+        {
+          match: /queryables/,
+          response: jsonResponse({ properties: {} }),
+        },
+        {
+          match: /\?f=json$/,
+          response: jsonResponse({}),
+        },
+      ]);
+      vi.stubGlobal('fetch', fetchMock);
+      const result = await inspectSourceClientSide('http://localhost:8000');
+      const ids = result.collections.map((c) => c.id).sort();
+      expect(ids).toEqual(['page1-a', 'page2-b']);
+    });
+
     it('handles many collections in batches of 5', async () => {
       const ids = Array.from({ length: 12 }, (_, i) => `c${i}`);
       fetchMock = fetchByUrl([
@@ -552,6 +599,43 @@ describe('inspectSourceClientSide', () => {
       vi.stubGlobal('fetch', fetchMock);
       const result = await inspectSourceClientSide('http://localhost:8000');
       expect(result.conformanceError).toBe('boom');
+    });
+  });
+
+  describe('findNextLink', () => {
+    const base = 'http://localhost:8000/collections?f=json';
+
+    it('returns null when links is not an array', () => {
+      expect(findNextLink(undefined, base)).toBeNull();
+      expect(findNextLink({}, base)).toBeNull();
+    });
+
+    it('returns null when there is no next link', () => {
+      expect(findNextLink([{ rel: 'self', href: base }], base)).toBeNull();
+    });
+
+    it('returns the absolute href of a next link', () => {
+      const next = findNextLink(
+        [{ rel: 'next', type: 'application/json', href: base + '&offset=10' }],
+        base,
+      );
+      expect(next).toBe(base + '&offset=10');
+    });
+
+    it('resolves a relative next href against the current page', () => {
+      const next = findNextLink([{ rel: 'next', href: '/collections?f=json&offset=10' }], base);
+      expect(next).toBe('http://localhost:8000/collections?f=json&offset=10');
+    });
+
+    it('prefers a json-typed next link over others', () => {
+      const next = findNextLink(
+        [
+          { rel: 'next', type: 'text/html', href: base + '&html' },
+          { rel: 'next', type: 'application/json', href: base + '&json' },
+        ],
+        base,
+      );
+      expect(next).toBe(base + '&json');
     });
   });
 });

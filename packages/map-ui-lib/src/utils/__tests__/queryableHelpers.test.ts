@@ -13,7 +13,9 @@ import {
   humanizePropertyName,
   detectStyleTypeForCollection,
   detectStyleTypesForCollection,
+  resolveStyleReapplyAction,
 } from '../queryableHelpers';
+import type { StyleConfig } from '../../types';
 
 function mockFetchSequence(...responses: Array<{ ok?: boolean; body: unknown }>) {
   const fn = vi.fn();
@@ -354,5 +356,41 @@ describe('detectStyleTypesForCollection', () => {
       { ok: false, body: {} },
     ));
     expect(await detectStyleTypesForCollection('https://api.example.com', 'cities')).toEqual([]);
+  });
+});
+
+describe('resolveStyleReapplyAction', () => {
+  const fill: StyleConfig = buildDefaultStylesForGeometryTypes(['Polygon'])[0];
+  const circle: StyleConfig = buildDefaultStylesForGeometryTypes(['Point'])[0];
+
+  it('applies detected styles when there are none yet', () => {
+    expect(resolveStyleReapplyAction(undefined, [circle], null)).toBe('apply');
+    expect(resolveStyleReapplyAction([], [circle], null)).toBe('apply');
+  });
+
+  it('keeps when nothing was detected', () => {
+    expect(resolveStyleReapplyAction([fill], [], [fill])).toBe('keep');
+  });
+
+  it('keeps when current already equals detected', () => {
+    expect(resolveStyleReapplyAction([circle], [circle], [fill])).toBe('keep');
+  });
+
+  it('re-applies when current styles are still the untouched auto-defaults (collection change)', () => {
+    // Draft started on a polygon collection (fill), then switched to point (circle).
+    // The current fill equals the last auto-applied fill, so it is safe to replace with circle.
+    expect(resolveStyleReapplyAction([fill], [circle], [fill])).toBe('apply');
+  });
+
+  it('warns instead of clobbering when the user customized the styles', () => {
+    const customized: StyleConfig = {
+      ...fill,
+      paint: { ...fill.paint, 'fill-color': '#123456' },
+    };
+    expect(resolveStyleReapplyAction([customized], [circle], [fill])).toBe('warn');
+  });
+
+  it('warns when styles exist but we never recorded an auto-applied set', () => {
+    expect(resolveStyleReapplyAction([fill], [circle], null)).toBe('warn');
   });
 });

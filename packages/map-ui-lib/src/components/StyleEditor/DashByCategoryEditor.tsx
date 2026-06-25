@@ -56,6 +56,37 @@ export function DashByCategoryEditor({
   const [autoPopulating, setAutoPopulating] = useState(false);
   const lastFetchedRef = useRef<string | null>(null);
 
+  // Keep latest onChange in a ref so the auto-fetch effect doesn't need it as a dep.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Auto-fetch distinct values once when property changes, only if cases is empty.
+  // NOTE: this effect must run on every render (Rules of Hooks), so it lives
+  // ABOVE the `if (!value)` early return. The body no-ops when value is absent.
+  useEffect(() => {
+    if (!value || !onFetchDistinctValues || !value.property) return;
+    if (value.cases.length > 0) return;
+    if (lastFetchedRef.current === value.property) return;
+    lastFetchedRef.current = value.property;
+    setAutoPopulating(true);
+    const property = value.property;
+    const existingCases = value.cases;
+    void (async () => {
+      try {
+        const distinct = await onFetchDistinctValues(property);
+        const existing = new Map(existingCases.map((c) => [String(c.value), c.dasharray]));
+        const cases = distinct.map((v) => ({
+          value: v,
+          dasharray: existing.get(v) ?? DEFAULT_DASH_PRESETS[0].dasharray,
+        }));
+        onChangeRef.current({ property, cases });
+      } finally {
+        setAutoPopulating(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value?.property, value?.cases.length, onFetchDistinctValues]);
+
   if (!value) {
     return (
       <div className="mapui:flex mapui:flex-col mapui:items-start mapui:gap-1">
@@ -109,15 +140,6 @@ export function DashByCategoryEditor({
       setAutoPopulating(false);
     }
   };
-
-  // Auto-fetch distinct values once when property changes, only if cases is empty
-  useEffect(() => {
-    if (!onFetchDistinctValues || !value.property) return;
-    if (value.cases.length > 0) return;
-    if (lastFetchedRef.current === value.property) return;
-    void handleAutoPopulate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.property]);
 
   return (
     <div className="mapui:flex mapui:flex-col mapui:gap-2 mapui:rounded mapui:border mapui:border-amber-200 mapui:bg-amber-50 mapui:p-2">

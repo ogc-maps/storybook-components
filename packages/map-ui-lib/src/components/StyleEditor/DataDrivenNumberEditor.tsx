@@ -1,5 +1,6 @@
 import type { AvailableProperty, FetchDistinctValuesFn } from '../../types';
 import { DataDrivenExpressionEditor } from './DataDrivenExpressionEditor';
+import { buildNumberRamp } from '../../utils/dataDrivenExpressions';
 
 export interface DataDrivenNumberEditorProps {
   value: unknown[];
@@ -59,6 +60,9 @@ export function DataDrivenNumberEditor({
         />
       )}
       onFetchDistinctValues={onFetchDistinctValues}
+      // Maps distinct category values to an evenly-spaced width ramp so
+      // line-width-by-category gets an Auto-populate button like color/icon.
+      autoPopulateOutputs={(values) => buildNumberRamp(values.length, min ?? 1, max)}
     />
   );
 }
