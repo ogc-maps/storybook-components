@@ -103,6 +103,27 @@ describe('interpolate expression roundtrip', () => {
   });
 });
 
+describe('hidden / transparent color fallback', () => {
+  const colorParser = (raw: unknown): string => (typeof raw === 'string' ? raw : '#000000');
+  const HIDDEN = 'rgba(0,0,0,0)';
+
+  it('round-trips a fully-transparent fallback through build -> parse -> build', () => {
+    const pairs: MatchPair<string>[] = [
+      { value: 'park', output: '#00ff00', matchType: 'equals' },
+    ];
+    const expr = buildMatchExpression('kind', pairs, HIDDEN, (v) => v);
+    // Fallback is the last element of the match expression.
+    expect(expr[expr.length - 1]).toBe(HIDDEN);
+
+    const parsed = parseMatchExpression(expr, colorParser, '#000000');
+    expect(parsed.fallback).toBe(HIDDEN);
+    expect(parsed.pairs).toEqual(pairs);
+
+    const rebuilt = buildMatchExpression(parsed.property, parsed.pairs, parsed.fallback, (v) => v);
+    expect(rebuilt).toEqual(expr);
+  });
+});
+
 describe('parseMatchExpression with empty pairs', () => {
   it('returns empty pairs list and fallback-only expression', () => {
     const expr = buildMatchExpression<number>('size', [], 7, (v) => v);

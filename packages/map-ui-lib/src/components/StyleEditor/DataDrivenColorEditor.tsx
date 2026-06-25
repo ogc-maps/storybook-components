@@ -69,6 +69,8 @@ export function DataDrivenColorEditor({
       sidePanel={themePanel}
       onFetchDistinctValues={onFetchDistinctValues}
       autoPopulateOutputs={(values) => values.map((_, i) => getColorFromPalette(i, theme))}
+      // Lets the user hide features matching no category (fully transparent fill).
+      fallbackHiddenValue="rgba(0,0,0,0)"
     />
   );
 }

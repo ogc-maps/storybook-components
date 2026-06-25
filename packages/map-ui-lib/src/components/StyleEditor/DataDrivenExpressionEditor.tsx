@@ -43,6 +43,13 @@ export interface DataDrivenExpressionEditorProps<TOutput> {
   /** Labels for the mode toggle buttons. */
   matchModeLabel?: string;
   interpolateModeLabel?: string;
+  /**
+   * When provided, a "Hidden / none" checkbox is shown alongside the fallback
+   * cell. Checking it sets the fallback to this value (e.g. a fully transparent
+   * color), so features matching no category render nothing while keeping a
+   * valid expression. Comparison is by serialized equality.
+   */
+  fallbackHiddenValue?: TOutput;
 }
 
 interface EditableStop<TOutput> {
@@ -90,6 +97,7 @@ export function DataDrivenExpressionEditor<TOutput>({
   autoPopulateOutputs,
   matchModeLabel = 'Categorical',
   interpolateModeLabel = 'Gradient',
+  fallbackHiddenValue,
 }: DataDrivenExpressionEditorProps<TOutput>) {
   const initialMode = supportedModes.includes(detectMode(value)) ? detectMode(value) : supportedModes[0];
   const [mode, setMode] = useState<ExprMode>(initialMode);
@@ -110,6 +118,9 @@ export function DataDrivenExpressionEditor<TOutput>({
     return mode === 'interpolate' ? parseInterpolateExpression(value, parseOutput).property : '';
   });
   const [stopErrors, setStopErrors] = useState<string[]>([]);
+
+  // Remembers the last non-hidden fallback so unchecking "Hidden / none" restores it.
+  const lastVisibleFallbackRef = useRef<TOutput | null>(null);
 
   const prevValueRef = useRef(value);
   useEffect(() => {
@@ -304,12 +315,42 @@ export function DataDrivenExpressionEditor<TOutput>({
 
           <div className="mapui:flex mapui:items-center mapui:gap-2">
             <span className="mapui:text-xs mapui:text-slate-500 mapui:shrink-0">Fallback:</span>
-            {renderOutputCell({
-              value: matchFallback,
-              onChange: handleMatchFallbackChange,
-              context: 'fallback',
-              rowIndex: -1,
-            })}
+            {(() => {
+              const isHidden =
+                fallbackHiddenValue !== undefined &&
+                serializeOutput(matchFallback) === serializeOutput(fallbackHiddenValue);
+              return (
+                <>
+                  {!isHidden &&
+                    renderOutputCell({
+                      value: matchFallback,
+                      onChange: handleMatchFallbackChange,
+                      context: 'fallback',
+                      rowIndex: -1,
+                    })}
+                  {fallbackHiddenValue !== undefined && (
+                    <label className="mapui:flex mapui:items-center mapui:gap-1 mapui:text-xs mapui:text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={isHidden}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            lastVisibleFallbackRef.current = matchFallback;
+                            handleMatchFallbackChange(fallbackHiddenValue);
+                          } else {
+                            handleMatchFallbackChange(
+                              lastVisibleFallbackRef.current ?? defaultOutput(0, 'fallback'),
+                            );
+                          }
+                        }}
+                        className="mapui:h-3 mapui:w-3"
+                      />
+                      Hidden / none
+                    </label>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div className="mapui:flex mapui:gap-2">
