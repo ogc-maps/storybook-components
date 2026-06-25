@@ -115,6 +115,24 @@ describe('GET /api/configs/:id', () => {
     const res = await request(app).get('/api/configs/00000000-0000-4000-8000-000000000000');
     expect(res.status).toBe(404);
   });
+
+  it('sets Cache-Control: no-store on the UUID-lookup branch', async () => {
+    const agent = await authenticatedAgent();
+    const created = await agent.post('/api/configs').send({ name: 'cache-uuid' });
+    const id = created.body.id;
+    const res = await agent.get(`/api/configs/${id}`);
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('sets Cache-Control: no-store on the published-name branch', async () => {
+    const agent = await authenticatedAgent();
+    const created = await agent.post('/api/configs').send({ name: 'cache-name' });
+    await agent.post(`/api/configs/${created.body.id}/publish`);
+    const res = await request(app).get('/api/configs/cache-name');
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
 });
 
 describe('DELETE /api/configs/:id', () => {

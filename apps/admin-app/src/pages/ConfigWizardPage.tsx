@@ -707,7 +707,7 @@ export function ConfigWizardPage() {
               />
             </div>
 
-            <CollapsibleSection title="Branding" badge="optional">
+            <CollapsibleSection title="Branding & Title" defaultOpen={true}>
               <div className="mapui:flex mapui:flex-col mapui:gap-4">
                 <FormField label="Header Title" description="Title shown in the map header bar">
                   <input
@@ -719,11 +719,7 @@ export function ConfigWizardPage() {
                   />
                 </FormField>
 
-                <FormField label="Header Background Color">
-                  <ColorPicker value={branding.headerColor ?? DEFAULT_HEADER_COLOR} onChange={color => updateBranding({ headerColor: color })} />
-                </FormField>
-
-                <FormField label="Browser Tab Title" description="Title shown in the browser tab">
+                <FormField label="Browser Tab Title" description="Sets the browser tab text (the title shown in the browser's tab/window). Defaults to the header title if left blank.">
                   <input
                     type="text"
                     value={branding.browserTitle ?? ''}
@@ -731,6 +727,10 @@ export function ConfigWizardPage() {
                     placeholder="My Map"
                     className="mapui:w-full mapui:rounded mapui:border mapui:border-slate-300 mapui:px-2 mapui:py-1 mapui:text-sm mapui:outline-none focus:mapui:border-blue-500 focus:mapui:ring-1 focus:mapui:ring-blue-500"
                   />
+                </FormField>
+
+                <FormField label="Header Background Color">
+                  <ColorPicker value={branding.headerColor ?? DEFAULT_HEADER_COLOR} onChange={color => updateBranding({ headerColor: color })} />
                 </FormField>
 
                 <FormField label="Favicon" description="Icon shown in the browser tab (PNG, ICO, or SVG, max 100KB)">
