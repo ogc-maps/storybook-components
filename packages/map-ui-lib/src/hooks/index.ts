@@ -10,6 +10,7 @@ export { useOgcQueryables, type UseOgcQueryablesResult } from './useOgcQueryable
 export { useOgcCollectionDetail, type UseOgcCollectionDetailResult } from './useOgcCollectionDetail';
 export { useWmtsCapabilities, type UseWmtsCapabilitiesResult } from './useWmtsCapabilities';
 export { useHeaderAuthTransformRequest } from './useHeaderAuthTransformRequest';
+export { useVectorSourceLayer } from './useVectorSourceLayer';
 export { useMeasure, type UseMeasureResult } from './useMeasure';
 export { useSelection, type UseSelectionResult } from './useSelection';
 export {

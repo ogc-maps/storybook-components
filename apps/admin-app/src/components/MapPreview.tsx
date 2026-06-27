@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import { Map, Source, Layer, Marker, AttributionControl, type MapRef } from 'react-map-gl/maplibre';
-import { useOgcFeatures, useExport, useHeaderAuthTransformRequest } from '@ogc-maps/storybook-components/hooks';
+import { useOgcFeatures, useExport, useHeaderAuthTransformRequest, useVectorSourceLayer } from '@ogc-maps/storybook-components/hooks';
 import {
   getCql2FilteredVectorTileUrl,
   getImageryTileUrl,
@@ -196,8 +196,10 @@ function PreviewVectorTileLayer({
   auth?: SourceAuth;
 }) {
   const tileUrl = getCql2FilteredVectorTileUrl(sourceUrl, layer.collection, cql2Filter, tileMatrixSetId, auth);
-  const sourceKey = getVectorTileSourceKey(layer.id, cql2Filter);
-  const sourceLayer = layer.collection.replace(/^[^.]+\./, '');
+  // Resolve the MVT `source-layer` from the collection's TileJSON (handles tipg
+  // instances that name the tile layer `default` rather than the table name).
+  const sourceLayer = useVectorSourceLayer(sourceUrl, layer.collection, tileMatrixSetId, auth);
+  const sourceKey = `${getVectorTileSourceKey(layer.id, cql2Filter)}::${sourceLayer}`;
 
   if (!layer.styles?.length) return null;
 

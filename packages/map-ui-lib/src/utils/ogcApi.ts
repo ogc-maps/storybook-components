@@ -292,6 +292,95 @@ export function getTileJsonUrl(
 }
 
 /**
+ * Strip a leading `schema.` qualifier from an OGC collection or MVT layer name.
+ *
+ * tipg serves vector tiles whose *internal* MVT layer name is the unqualified
+ * table name (e.g. `road`), while the collection id and the TileJSON
+ * `vector_layers[].id` are schema-qualified (`gunnison.road`). MapLibre's
+ * `source-layer` must match the name *inside the tile*, so we strip the
+ * qualifier from whichever name we feed it. Only the first `schema.` segment is
+ * removed; names without a dot pass through unchanged (e.g. `default`).
+ */
+export function stripSchemaPrefix(name: string): string {
+  return name.replace(/^[^.]+\./, '');
+}
+
+/**
+ * Candidate TileJSON URLs for a collection. Different tipg deployments expose
+ * the TileJSON under different paths — some at `…/tiles/{tms}/tilejson.json`,
+ * others at `…/{tms}/tilejson.json` — so callers try each until one responds.
+ * Returns raw URLs; auth is applied by the fetch layer.
+ */
+export function getTileJsonUrlCandidates(
+  baseUrl: string,
+  collection: string,
+  tileMatrixSetId: string = 'WebMercatorQuad',
+): string[] {
+  const base = stripTrailingSlash(baseUrl);
+  const c = encodeURIComponent(collection);
+  const t = encodeURIComponent(tileMatrixSetId);
+  return [
+    `${base}/collections/${c}/tiles/${t}/tilejson.json`,
+    `${base}/collections/${c}/${t}/tilejson.json`,
+  ];
+}
+
+/**
+ * Derive the MapLibre `source-layer` from a TileJSON document: the first
+ * `vector_layers` entry's id, with any `schema.` qualifier stripped (see
+ * {@link stripSchemaPrefix}). Returns null when no vector layer is declared.
+ */
+export function parseVectorSourceLayer(tileJson: TileJson): string | null {
+  const id = tileJson.vector_layers?.[0]?.id;
+  return id ? stripSchemaPrefix(id) : null;
+}
+
+const vectorSourceLayerCache = new Map<string, Promise<string | null>>();
+
+/**
+ * Resolve the MapLibre `source-layer` for a vector-tile collection by reading
+ * the collection's TileJSON metadata, instead of assuming it equals the
+ * unqualified collection name. This handles tipg deployments whose custom code
+ * names the tile layer something other than the table (e.g. `default`).
+ *
+ * Returns the schema-stripped TileJSON `vector_layers` id, or `null` when no
+ * TileJSON is reachable or it declares no vector layers — in which case the
+ * caller should fall back to `stripSchemaPrefix(collection)`. Successful
+ * resolutions are cached per base+collection+tileMatrixSet for the page
+ * lifetime; `null` results are evicted so a transient TileJSON failure can be
+ * retried on a later mount instead of pinning the layer to its fallback.
+ */
+export function fetchVectorSourceLayer(
+  baseUrl: string,
+  collection: string,
+  tileMatrixSetId: string = 'WebMercatorQuad',
+  auth?: SourceAuth,
+): Promise<string | null> {
+  const key = `${stripTrailingSlash(baseUrl)}|${collection}|${tileMatrixSetId}`;
+  const cached = vectorSourceLayerCache.get(key);
+  if (cached) return cached;
+  const promise = (async () => {
+    for (const url of getTileJsonUrlCandidates(baseUrl, collection, tileMatrixSetId)) {
+      try {
+        const tileJson = await fetchJson<TileJson>(url, auth);
+        const sourceLayer = parseVectorSourceLayer(tileJson);
+        if (sourceLayer) return sourceLayer;
+      } catch {
+        // Try the next candidate path.
+      }
+    }
+    return null;
+  })();
+  // Cache the in-flight promise so concurrent layers share one request, but drop
+  // it once resolved unless it yielded a name — keeps successes, retries misses.
+  vectorSourceLayerCache.set(key, promise);
+  void promise.then((resolved) => {
+    if (!resolved) vectorSourceLayerCache.delete(key);
+  });
+  return promise;
+}
+
+/**
  * Build the vector tile URL template for a collection.
  * Returns a URL with `{z}/{x}/{y}` placeholders suitable for MapLibre.
  */
