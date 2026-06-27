@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Map, Source, Layer, Marker, AttributionControl, type MapRef } from 'react-map-gl/maplibre';
 import { useOgcFeatures, useHeaderAuthTransformRequest, useVectorSourceLayer } from '@ogc-maps/storybook-components/hooks';
-import { getCql2FilteredVectorTileUrl, resolveStyleWithSprites, getVectorTileSourceKey, getSubLayerId, getLayerSubLayerIds, buildGeometryFilter, getImageryTileUrl, expandDashByCategory, buildSourceUrlMap } from '@ogc-maps/storybook-components/utils';
+import { getCql2FilteredVectorTileUrl, resolveStyleWithSprites, getVectorTileSourceKey, getSubLayerId, getStyleSubLayerIds, getLayerSourceKey, getLayerSubLayerIds, buildGeometryFilter, getImageryTileUrl, expandDashByCategory, buildSourceUrlMap } from '@ogc-maps/storybook-components/utils';
 import type { CQL2Expression, SourceAuth } from '@ogc-maps/storybook-components/utils';
 import type { LayerConfig, ImageryLayerConfig } from '@ogc-maps/storybook-components/types';
 import type { MeasureMode, SelectionMode } from '@ogc-maps/storybook-components';
@@ -261,17 +261,23 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
 
   useEffect(() => {
     if (!mapInstance) return;
+    const sourceKeyFor = (l: typeof layers[number]) => getLayerSourceKey(l, activeCql2Filters[l.id]);
     for (const layer of layers) {
       if (!layer.styles?.length) continue;
-      const subLayerIds = getLayerSubLayerIds(layer, activeCql2Filters[layer.id]);
+      const sourceKey = sourceKeyFor(layer);
       layer.styles.forEach((style, i) => {
-        const subLayerId = subLayerIds[i];
-        if (!mapInstance.getLayer(subLayerId)) return;
-        for (const [prop, value] of Object.entries(style.paint)) {
-          try {
-            mapInstance.setPaintProperty(subLayerId, prop, value);
-          } catch {
-            // Layer may not be added yet
+        // A dashByCategory line style renders as N per-case layers, each with a
+        // static line-dasharray — don't overwrite that from the shared paint.
+        const isDashExpanded = style.type === 'line' && !!style.dashByCategory && expandDashByCategory(style).length > 0;
+        for (const subLayerId of getStyleSubLayerIds(sourceKey, style, i)) {
+          if (!mapInstance.getLayer(subLayerId)) continue;
+          for (const [prop, value] of Object.entries(style.paint)) {
+            if (isDashExpanded && prop === 'line-dasharray') continue;
+            try {
+              mapInstance.setPaintProperty(subLayerId, prop, value);
+            } catch {
+              // Layer may not be added yet
+            }
           }
         }
       });

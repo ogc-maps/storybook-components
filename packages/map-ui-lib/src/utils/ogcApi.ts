@@ -1,6 +1,7 @@
 // OGC API utility functions - pure fetch functions with no React dependencies
 import type { CQL2Expression } from './cql2';
-import type { SourceAuth } from '../types';
+import type { SourceAuth, LineStyle, DashByCategory } from '../types';
+import { expandDashByCategory } from './dashByCategory';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -587,11 +588,17 @@ export function getVectorTileSourceKey(layerId: string, cql2Filter?: CQL2Express
   return cql2Filter ? `${layerId}--${JSON.stringify(cql2Filter)}` : layerId;
 }
 
+/** Minimal structural shape of a style needed to derive its MapLibre ids. */
+interface SubLayerIdStyle {
+  type: string;
+  dashByCategory?: DashByCategory;
+}
+
 /** Minimal structural shape of a layer needed to derive its MapLibre ids. */
 interface SubLayerIdLayer {
   id: string;
   dataMode?: string;
-  styles?: Array<{ type: string }>;
+  styles?: SubLayerIdStyle[];
 }
 
 /**
@@ -617,10 +624,29 @@ export function getSubLayerId(sourceKey: string, styleType: string, styleIndex: 
   return `${sourceKey}--${styleType}--${styleIndex}`;
 }
 
-/** All sub-layer ids a layer renders, in style order. */
+/**
+ * The MapLibre layer id(s) one style renders. Most styles map 1:1 to a single
+ * id, but a `line` style with `dashByCategory` expands to one layer per case
+ * (+ a default) — `${base}--dash--${slug}` — with NO base layer, exactly
+ * mirroring the per-app renderers (`renderStyleLayers` / `renderPreviewStyleLayers`).
+ * Consumers MUST go through this so interactive/paint/reorder ids never drift
+ * from what is actually rendered.
+ */
+export function getStyleSubLayerIds(sourceKey: string, style: SubLayerIdStyle, styleIndex: number): string[] {
+  const baseId = getSubLayerId(sourceKey, style.type, styleIndex);
+  if (style.type === 'line' && style.dashByCategory) {
+    const expansions = expandDashByCategory(style as LineStyle);
+    if (expansions.length > 0) {
+      return expansions.map((sub) => `${baseId}--${sub.idSuffix}`);
+    }
+  }
+  return [baseId];
+}
+
+/** All sub-layer ids a layer renders, in style order (dash styles expanded). */
 export function getLayerSubLayerIds(layer: SubLayerIdLayer, cql2Filter?: CQL2Expression | null): string[] {
   const sourceKey = getLayerSourceKey(layer, cql2Filter);
-  return (layer.styles ?? []).map((s, i) => getSubLayerId(sourceKey, s.type, i));
+  return (layer.styles ?? []).flatMap((s, i) => getStyleSubLayerIds(sourceKey, s, i));
 }
 
 /**
