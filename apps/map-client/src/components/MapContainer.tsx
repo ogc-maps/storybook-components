@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Map, Source, Layer, Marker, AttributionControl, type MapRef } from 'react-map-gl/maplibre';
 import { useOgcFeatures, useHeaderAuthTransformRequest, useVectorSourceLayer } from '@ogc-maps/storybook-components/hooks';
-import { getCql2FilteredVectorTileUrl, resolveStyleWithSprites, getVectorTileSourceKey, buildGeometryFilter, getImageryTileUrl, expandDashByCategory, buildSourceUrlMap } from '@ogc-maps/storybook-components/utils';
+import { getCql2FilteredVectorTileUrl, resolveStyleWithSprites, getVectorTileSourceKey, getSubLayerId, getLayerSubLayerIds, buildGeometryFilter, getImageryTileUrl, expandDashByCategory, buildSourceUrlMap } from '@ogc-maps/storybook-components/utils';
 import type { CQL2Expression, SourceAuth } from '@ogc-maps/storybook-components/utils';
 import type { LayerConfig, ImageryLayerConfig } from '@ogc-maps/storybook-components/types';
 import type { MeasureMode, SelectionMode } from '@ogc-maps/storybook-components';
@@ -26,7 +26,12 @@ function VectorTileLayer({
   // the source key so the source remounts if the resolved name differs from the
   // synchronous fallback (e.g. a tipg instance that names the tile layer `default`).
   const sourceLayer = useVectorSourceLayer(sourceUrl, layer.collection, tileMatrixSetId, auth);
-  const sourceKey = `${getVectorTileSourceKey(layer.id, cql2Filter)}::${sourceLayer}`;
+  const sourceKey = getVectorTileSourceKey(layer.id, cql2Filter);
+  // Fold the resolved source-layer into the React key only — this remounts the
+  // Source/Layers when the name resolves (MapLibre can't change `source-layer`
+  // in place) without changing the MapLibre ids that interactiveLayerIds,
+  // paint-sync, reorder, and selection rebuild independently via getSubLayerId.
+  const remountKey = `${sourceKey}::${sourceLayer}`;
 
   if (!layer.styles?.length) {
     console.warn(`Layer ${layer.id} has no style configuration`);
@@ -34,7 +39,7 @@ function VectorTileLayer({
   }
 
   return (
-    <Source id={sourceKey} key={sourceKey} type="vector" tiles={[tileUrl]}>
+    <Source id={sourceKey} key={remountKey} type="vector" tiles={[tileUrl]}>
       {layer.styles.flatMap((style, i) => renderStyleLayers(style, i, sourceKey, layer, sourceLayer))}
     </Source>
   );
@@ -94,7 +99,7 @@ function renderStyleLayers(
     ...(sourceLayer ? { 'source-layer': sourceLayer } : {}),
   };
   const baseFilter = style.geometryFilter ? buildGeometryFilter(style.geometryFilter) : undefined;
-  const baseSubLayerId = `${baseId}--${style.type}--${styleIndex}`;
+  const baseSubLayerId = getSubLayerId(baseId, style.type, styleIndex);
 
   if (style.type === 'line' && style.dashByCategory) {
     const expansions = expandDashByCategory(style);
@@ -258,12 +263,9 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
     if (!mapInstance) return;
     for (const layer of layers) {
       if (!layer.styles?.length) continue;
-      const sourceKey =
-        layer.dataMode === 'vector-tiles'
-          ? getVectorTileSourceKey(layer.id, activeCql2Filters[layer.id])
-          : layer.id;
+      const subLayerIds = getLayerSubLayerIds(layer, activeCql2Filters[layer.id]);
       layer.styles.forEach((style, i) => {
-        const subLayerId = `${sourceKey}--${style.type}--${i}`;
+        const subLayerId = subLayerIds[i];
         if (!mapInstance.getLayer(subLayerId)) return;
         for (const [prop, value] of Object.entries(style.paint)) {
           try {
@@ -334,12 +336,7 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
     const frame = requestAnimationFrame(() => {
       const desiredOrder = reversedLayers
         .filter(l => sourceUrlMap[l.sourceId] && l.styles?.length)
-        .flatMap(l => {
-          const sourceKey = l.dataMode === 'vector-tiles'
-            ? getVectorTileSourceKey(l.id, activeCql2Filters[l.id])
-            : l.id;
-          return (l.styles ?? []).map((s, i) => `${sourceKey}--${s.type}--${i}`);
-        })
+        .flatMap(l => getLayerSubLayerIds(l, activeCql2Filters[l.id]))
         .filter(id => mapInstance.getLayer(id));
 
       for (let i = desiredOrder.length - 2; i >= 0; i--) {
@@ -365,13 +362,9 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
   // IDs of visible layers for feature querying (one per sub-layer)
   const interactiveLayerIds = useMemo(
     () =>
-      layers.filter((l) => l.visible).flatMap((l) => {
-        const sourceKey =
-          l.dataMode === 'vector-tiles'
-            ? getVectorTileSourceKey(l.id, activeCql2Filters[l.id])
-            : l.id;
-        return (l.styles ?? []).map((s, i) => `${sourceKey}--${s.type}--${i}`);
-      }),
+      layers
+        .filter((l) => l.visible)
+        .flatMap((l) => getLayerSubLayerIds(l, activeCql2Filters[l.id])),
     [layers, activeCql2Filters],
   );
 
@@ -379,13 +372,9 @@ export function MapContainer({ onMouseMove, onMouseLeave, onFeatureClick, onFeat
   const subLayerToLayerId = useMemo(() => {
     const map: Record<string, string> = {};
     layers.forEach((l) => {
-      const sourceKey =
-        l.dataMode === 'vector-tiles'
-          ? getVectorTileSourceKey(l.id, activeCql2Filters[l.id])
-          : l.id;
-      (l.styles ?? []).forEach((s, i) => {
-        map[`${sourceKey}--${s.type}--${i}`] = l.id;
-      });
+      for (const subLayerId of getLayerSubLayerIds(l, activeCql2Filters[l.id])) {
+        map[subLayerId] = l.id;
+      }
     });
     return map;
   }, [layers, activeCql2Filters]);

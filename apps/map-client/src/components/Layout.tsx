@@ -18,6 +18,7 @@ import {
   fetchFeatures,
   combineGeometries,
   isOgcApiSource,
+  getLayerSubLayerIds,
 } from '@ogc-maps/storybook-components/utils';
 import type { Cql2FilterConfig } from '@ogc-maps/storybook-components/types';
 import { useMapStore, useEffectiveCql2Filters } from '../stores/mapStore';
@@ -164,10 +165,7 @@ export function Layout({ uiConfig }: LayoutProps) {
     if (!selection.activeLayerId) return [];
     const layer = layers.find((l) => l.id === selection.activeLayerId);
     if (!layer) return [];
-    const sourceKey = layer.dataMode === 'vector-tiles'
-      ? (activeCql2Filters[layer.id] ? `${layer.id}--${JSON.stringify(activeCql2Filters[layer.id])}` : layer.id)
-      : layer.id;
-    return (layer.styles ?? []).map((s, i) => `${sourceKey}--${s.type}--${i}`);
+    return getLayerSubLayerIds(layer, activeCql2Filters[layer.id]);
   }, [selection.activeLayerId, layers, activeCql2Filters]);
 
   const handleSpatialSelectionComplete = useCallback(
