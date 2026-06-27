@@ -345,8 +345,10 @@ const vectorSourceLayerCache = new Map<string, Promise<string | null>>();
  *
  * Returns the schema-stripped TileJSON `vector_layers` id, or `null` when no
  * TileJSON is reachable or it declares no vector layers — in which case the
- * caller should fall back to `stripSchemaPrefix(collection)`. Results are cached
- * per base+collection+tileMatrixSet for the page lifetime.
+ * caller should fall back to `stripSchemaPrefix(collection)`. Successful
+ * resolutions are cached per base+collection+tileMatrixSet for the page
+ * lifetime; `null` results are evicted so a transient TileJSON failure can be
+ * retried on a later mount instead of pinning the layer to its fallback.
  */
 export function fetchVectorSourceLayer(
   baseUrl: string,
@@ -369,7 +371,12 @@ export function fetchVectorSourceLayer(
     }
     return null;
   })();
+  // Cache the in-flight promise so concurrent layers share one request, but drop
+  // it once resolved unless it yielded a name — keeps successes, retries misses.
   vectorSourceLayerCache.set(key, promise);
+  void promise.then((resolved) => {
+    if (!resolved) vectorSourceLayerCache.delete(key);
+  });
   return promise;
 }
 

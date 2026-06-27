@@ -84,7 +84,7 @@ describe('fetchVectorSourceLayer', () => {
     expect(result).toBeNull();
   });
 
-  it('caches the resolved promise per base+collection+tms', async () => {
+  it('caches a successful resolution per base+collection+tms', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(tileJson(['x.y'])));
     vi.stubGlobal('fetch', fetchMock);
     const a = await fetchVectorSourceLayer('https://d/ogc', 'x.y');
@@ -92,5 +92,19 @@ describe('fetchVectorSourceLayer', () => {
     expect(a).toBe('y');
     expect(b).toBe('y');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cache a null result, so a later call retries (e.g. after a transient failure)', async () => {
+    // First attempt: both candidate paths fail. Later attempt: TileJSON resolves.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({}, false, 503))
+      .mockResolvedValueOnce(jsonResponse({}, false, 503))
+      .mockResolvedValue(jsonResponse(tileJson(['e.recovered'])));
+    vi.stubGlobal('fetch', fetchMock);
+    const first = await fetchVectorSourceLayer('https://e/ogc', 'e.recovered');
+    expect(first).toBeNull();
+    const second = await fetchVectorSourceLayer('https://e/ogc', 'e.recovered');
+    expect(second).toBe('recovered');
   });
 });
