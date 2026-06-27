@@ -60,3 +60,6 @@ storybook-static
 
 # AI round-trip QA scratch (exports/captures)
 .qa-tmp/
+
+# Playwright MCP browser snapshots (scratch)
+.playwright-mcp/
