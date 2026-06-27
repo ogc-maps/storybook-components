@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Map, Source, Layer, Marker, AttributionControl, type MapRef } from 'react-map-gl/maplibre';
-import { useOgcFeatures, useHeaderAuthTransformRequest } from '@ogc-maps/storybook-components/hooks';
+import { useOgcFeatures, useHeaderAuthTransformRequest, useVectorSourceLayer } from '@ogc-maps/storybook-components/hooks';
 import { getCql2FilteredVectorTileUrl, resolveStyleWithSprites, getVectorTileSourceKey, buildGeometryFilter, getImageryTileUrl, expandDashByCategory, buildSourceUrlMap } from '@ogc-maps/storybook-components/utils';
 import type { CQL2Expression, SourceAuth } from '@ogc-maps/storybook-components/utils';
 import type { LayerConfig, ImageryLayerConfig } from '@ogc-maps/storybook-components/types';
@@ -22,8 +22,11 @@ function VectorTileLayer({
   auth?: SourceAuth;
 }) {
   const tileUrl = getCql2FilteredVectorTileUrl(sourceUrl, layer.collection, cql2Filter, tileMatrixSetId, auth);
-  const sourceKey = getVectorTileSourceKey(layer.id, cql2Filter);
-  const sourceLayer = layer.collection.replace(/^[^.]+\./, '');
+  // Resolve the MVT `source-layer` from the collection's TileJSON. Folded into
+  // the source key so the source remounts if the resolved name differs from the
+  // synchronous fallback (e.g. a tipg instance that names the tile layer `default`).
+  const sourceLayer = useVectorSourceLayer(sourceUrl, layer.collection, tileMatrixSetId, auth);
+  const sourceKey = `${getVectorTileSourceKey(layer.id, cql2Filter)}::${sourceLayer}`;
 
   if (!layer.styles?.length) {
     console.warn(`Layer ${layer.id} has no style configuration`);
