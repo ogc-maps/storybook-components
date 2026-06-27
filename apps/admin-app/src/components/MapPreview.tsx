@@ -19,6 +19,8 @@ import {
   baseCql2FilterFromLayer,
   getVectorTileSourceKey,
   getSubLayerId,
+  getStyleSubLayerIds,
+  getLayerSourceKey,
   getLayerSubLayerIds,
   buildGeometryFilter,
   buildCql2Query,
@@ -953,15 +955,20 @@ export function MapPreview({
     if (!mapInstance) return;
     for (const layer of layersWithDefaults) {
       if (!layer.styles?.length) continue;
-      const subLayerIds = getLayerSubLayerIds(layer, effectiveCql2Filters[layer.id]);
+      const sourceKey = getLayerSourceKey(layer, effectiveCql2Filters[layer.id]);
       layer.styles.forEach((style, i) => {
-        const subLayerId = subLayerIds[i];
-        if (!mapInstance.getLayer(subLayerId)) return;
-        for (const [prop, value] of Object.entries(style.paint)) {
-          try {
-            mapInstance.setPaintProperty(subLayerId, prop, value);
-          } catch {
-            // Layer may not be added yet
+        // A dashByCategory line style renders as N per-case layers, each with a
+        // static line-dasharray — don't overwrite that from the shared paint.
+        const isDashExpanded = style.type === 'line' && !!style.dashByCategory && expandDashByCategory(style).length > 0;
+        for (const subLayerId of getStyleSubLayerIds(sourceKey, style, i)) {
+          if (!mapInstance.getLayer(subLayerId)) continue;
+          for (const [prop, value] of Object.entries(style.paint)) {
+            if (isDashExpanded && prop === 'line-dasharray') continue;
+            try {
+              mapInstance.setPaintProperty(subLayerId, prop, value);
+            } catch {
+              // Layer may not be added yet
+            }
           }
         }
       });

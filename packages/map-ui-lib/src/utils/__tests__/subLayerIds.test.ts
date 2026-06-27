@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getLayerSourceKey,
   getSubLayerId,
+  getStyleSubLayerIds,
   getLayerSubLayerIds,
   getVectorTileSourceKey,
 } from '../ogcApi';
@@ -55,5 +56,49 @@ describe('sub-layer id helpers', () => {
         });
       }
     }
+  });
+
+  // dashByCategory line styles render N per-case layers (+ default) with NO base
+  // layer, so the consumer ids must expand the same way or roads tooltips break.
+  describe('dashByCategory expansion', () => {
+    const dashStyle = {
+      type: 'line',
+      dashByCategory: {
+        property: 'category',
+        cases: [
+          { value: 'Secondary', dasharray: [2, 2] },
+          { value: 'Vehicular Trail', dasharray: [1, 3] },
+        ],
+        default: [1, 0],
+      },
+    };
+
+    it('getStyleSubLayerIds expands to one id per case + default, no base id', () => {
+      const ids = getStyleSubLayerIds('roads', dashStyle, 0);
+      expect(ids).toEqual([
+        'roads--line--0--dash--Secondary',
+        'roads--line--0--dash--Vehicular_Trail',
+        'roads--line--0--dash--default',
+      ]);
+      expect(ids).not.toContain('roads--line--0');
+    });
+
+    it('a line style without dashByCategory stays a single base id', () => {
+      expect(getStyleSubLayerIds('roads', { type: 'line' }, 0)).toEqual(['roads--line--0']);
+    });
+
+    it('getLayerSubLayerIds flattens dash + non-dash styles in order', () => {
+      const layer = {
+        id: 'roads',
+        dataMode: 'vector-tiles',
+        styles: [dashStyle, { type: 'symbol' }],
+      };
+      expect(getLayerSubLayerIds(layer)).toEqual([
+        'roads--line--0--dash--Secondary',
+        'roads--line--0--dash--Vehicular_Trail',
+        'roads--line--0--dash--default',
+        'roads--symbol--1',
+      ]);
+    });
   });
 });
