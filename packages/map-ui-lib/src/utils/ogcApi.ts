@@ -587,6 +587,42 @@ export function getVectorTileSourceKey(layerId: string, cql2Filter?: CQL2Express
   return cql2Filter ? `${layerId}--${JSON.stringify(cql2Filter)}` : layerId;
 }
 
+/** Minimal structural shape of a layer needed to derive its MapLibre ids. */
+interface SubLayerIdLayer {
+  id: string;
+  dataMode?: string;
+  styles?: Array<{ type: string }>;
+}
+
+/**
+ * The MapLibre `Source` id for a layer. Vector-tile layers fold the CQL2 filter
+ * into the key (so the source re-fetches when the filter changes); GeoJSON
+ * layers just use the layer id.
+ *
+ * NOTE: this must NOT include the resolved MVT `source-layer` — that is folded
+ * into the React remount *key* only, not the MapLibre id, so that the id stays
+ * stable and matches the ids built by id-based consumers.
+ */
+export function getLayerSourceKey(layer: SubLayerIdLayer, cql2Filter?: CQL2Expression | null): string {
+  return layer.dataMode === 'vector-tiles' ? getVectorTileSourceKey(layer.id, cql2Filter) : layer.id;
+}
+
+/**
+ * The MapLibre layer id for one style of a layer. Both the renderer
+ * (MapContainer / MapPreview) and every consumer that looks layers up by id
+ * (interactiveLayerIds, paint sync, imperative reorder, selection filters) MUST
+ * go through this so the rendered id and the looked-up id can never drift.
+ */
+export function getSubLayerId(sourceKey: string, styleType: string, styleIndex: number): string {
+  return `${sourceKey}--${styleType}--${styleIndex}`;
+}
+
+/** All sub-layer ids a layer renders, in style order. */
+export function getLayerSubLayerIds(layer: SubLayerIdLayer, cql2Filter?: CQL2Expression | null): string[] {
+  const sourceKey = getLayerSourceKey(layer, cql2Filter);
+  return (layer.styles ?? []).map((s, i) => getSubLayerId(sourceKey, s.type, i));
+}
+
 /**
  * Build a MapLibre geometry-type filter expression for restricting which
  * geometry types a layer renders.
