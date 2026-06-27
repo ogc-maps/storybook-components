@@ -17,6 +17,14 @@
 
 import type { LineStyle, DashByCategory } from '../types';
 
+/**
+ * Paint properties a `dashByCategory` expansion owns per-case (each sub-layer
+ * gets its own static value). Renderers strip these from the shared paint, and
+ * paint-sync must not overwrite them — both read this list so the rule lives in
+ * one place.
+ */
+export const DASH_PER_CASE_PAINT_PROPS: readonly string[] = ['line-dasharray'];
+
 export interface ExpandedDashSubLayer {
   /** Sub-layer id suffix (caller prepends `${baseSourceKey}--${styleIndex}--`). */
   idSuffix: string;

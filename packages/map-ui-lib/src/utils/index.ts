@@ -1,4 +1,5 @@
 export * from './ogcApi';
+export * from './subLayerIds';
 export * from './wmts';
 export * from './sourceUrlMap';
 export * from './csvExport';

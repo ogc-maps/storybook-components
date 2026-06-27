@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   getLayerSourceKey,
   getSubLayerId,
+  getDashSubLayerId,
   getStyleSubLayerIds,
   getLayerSubLayerIds,
-  getVectorTileSourceKey,
-} from '../ogcApi';
+} from '../subLayerIds';
+import { getVectorTileSourceKey } from '../ogcApi';
+import { expandDashByCategory } from '../dashByCategory';
 import type { CQL2Expression } from '../cql2';
 
 const filter: CQL2Expression = {
@@ -99,6 +101,17 @@ describe('sub-layer id helpers', () => {
         'roads--line--0--dash--default',
         'roads--symbol--1',
       ]);
+    });
+
+    // The renderers emit dash ids as getDashSubLayerId(baseSubLayerId, idSuffix);
+    // assert that exactly reproduces what getStyleSubLayerIds returns, so the two
+    // can't drift (the regression that broke roads tooltips).
+    it('renderer dash id construction matches getStyleSubLayerIds', () => {
+      const baseSubLayerId = getSubLayerId('roads', dashStyle.type, 0);
+      const rendererIds = expandDashByCategory(dashStyle as never).map((sub) =>
+        getDashSubLayerId(baseSubLayerId, sub.idSuffix),
+      );
+      expect(rendererIds).toEqual(getStyleSubLayerIds('roads', dashStyle, 0));
     });
   });
 });

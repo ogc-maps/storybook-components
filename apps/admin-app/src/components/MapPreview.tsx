@@ -19,9 +19,11 @@ import {
   baseCql2FilterFromLayer,
   getVectorTileSourceKey,
   getSubLayerId,
+  getDashSubLayerId,
   getStyleSubLayerIds,
   getLayerSourceKey,
   getLayerSubLayerIds,
+  DASH_PER_CASE_PAINT_PROPS,
   buildGeometryFilter,
   buildCql2Query,
   combineGeometries,
@@ -155,13 +157,13 @@ function renderPreviewStyleLayers(
     const expansions = expandDashByCategory(style);
     if (expansions.length > 0) {
       const sharedPaint = { ...style.paint } as Record<string, unknown>;
-      delete sharedPaint['line-dasharray'];
+      for (const prop of DASH_PER_CASE_PAINT_PROPS) delete sharedPaint[prop];
       return expansions.map((sub) => {
         const filter = baseFilter ? ['all', baseFilter, sub.filter] : sub.filter;
         return (
           <Layer
             key={`${style.type}--${styleIndex}--${sub.idSuffix}`}
-            id={`${baseSubLayerId}--${sub.idSuffix}`}
+            id={getDashSubLayerId(baseSubLayerId, sub.idSuffix)}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             paint={{ ...sharedPaint, 'line-dasharray': sub.dasharray } as any}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -926,9 +928,7 @@ export function MapPreview({
 
   const findLayerForFeature = useCallback((featureLayerId: string) => {
     return layers.find(l => {
-      const sourceKey = l.dataMode === 'vector-tiles'
-        ? getVectorTileSourceKey(l.id, effectiveCql2Filters[l.id])
-        : l.id;
+      const sourceKey = getLayerSourceKey(l, effectiveCql2Filters[l.id]);
       // Match either the parent source key or any sub-layer ID (sourceKey--type--i)
       return featureLayerId === sourceKey ||
         featureLayerId.startsWith(`${sourceKey}--`);
@@ -957,13 +957,14 @@ export function MapPreview({
       if (!layer.styles?.length) continue;
       const sourceKey = getLayerSourceKey(layer, effectiveCql2Filters[layer.id]);
       layer.styles.forEach((style, i) => {
-        // A dashByCategory line style renders as N per-case layers, each with a
-        // static line-dasharray — don't overwrite that from the shared paint.
-        const isDashExpanded = style.type === 'line' && !!style.dashByCategory && expandDashByCategory(style).length > 0;
-        for (const subLayerId of getStyleSubLayerIds(sourceKey, style, i)) {
+        const ids = getStyleSubLayerIds(sourceKey, style, i);
+        // A dash-expanded style renders per-case layers whose DASH_PER_CASE_PAINT_PROPS
+        // are static per case — don't overwrite them. (Expanded ⇒ no base id.)
+        const ownsDashPaint = ids[0] !== getSubLayerId(sourceKey, style.type, i);
+        for (const subLayerId of ids) {
           if (!mapInstance.getLayer(subLayerId)) continue;
           for (const [prop, value] of Object.entries(style.paint)) {
-            if (isDashExpanded && prop === 'line-dasharray') continue;
+            if (ownsDashPaint && DASH_PER_CASE_PAINT_PROPS.includes(prop)) continue;
             try {
               mapInstance.setPaintProperty(subLayerId, prop, value);
             } catch {
