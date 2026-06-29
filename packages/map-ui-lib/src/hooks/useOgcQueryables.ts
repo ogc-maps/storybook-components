@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchQueryables, type OgcQueryables } from '../utils/ogcApi';
+import type { SourceAuth } from '../utils/ogcApi';
 
 export interface UseOgcQueryablesResult {
   queryables: OgcQueryables | null;
@@ -12,14 +13,18 @@ export interface UseOgcQueryablesResult {
  *
  * @param baseUrl - The base URL of the OGC API server
  * @param collectionId - The collection identifier
+ * @param auth - Optional authentication config for the source
  */
 export function useOgcQueryables(
   baseUrl: string | null,
   collectionId: string | null,
+  auth?: SourceAuth,
 ): UseOgcQueryablesResult {
   const [queryables, setQueryables] = useState<OgcQueryables | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+
+  const authKey = auth ? `${auth.type}:${auth.name}:${auth.value}` : '';
 
   useEffect(() => {
     if (!baseUrl || !collectionId) return;
@@ -28,7 +33,7 @@ export function useOgcQueryables(
     setLoading(true);
     setError(null);
 
-    fetchQueryables(baseUrl, collectionId)
+    fetchQueryables(baseUrl, collectionId, auth)
       .then((data) => {
         if (!cancelled) {
           setQueryables(data);
@@ -48,7 +53,8 @@ export function useOgcQueryables(
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, collectionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseUrl, collectionId, authKey]);
 
   return { queryables, loading, error };
 }

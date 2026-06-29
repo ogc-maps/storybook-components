@@ -465,6 +465,29 @@ describe('fetchQueryables', () => {
     expect(calledUrl).toContain('/collections/roads/queryables');
     expect(calledUrl).toContain('f=schemajson');
   });
+
+  it('passes header auth', async () => {
+    const queryables = { type: 'object', properties: {} };
+    vi.stubGlobal('fetch', mockFetchResponse(queryables));
+    await fetchQueryables(BASE, 'roads', HEADER_AUTH);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/collections/roads/queryables'),
+      { headers: { Authorization: 'Bearer tok' } },
+    );
+  });
+
+  it('appends query_param auth to URL', async () => {
+    const queryables = { type: 'object', properties: {} };
+    vi.stubGlobal('fetch', mockFetchResponse(queryables));
+    await fetchQueryables(BASE, 'roads', QUERY_AUTH);
+    const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(calledUrl).toContain('apikey=abc123');
+  });
+
+  it('throws on non-OK response', async () => {
+    vi.stubGlobal('fetch', mockFetchError(403));
+    await expect(fetchQueryables(BASE, 'roads')).rejects.toThrow('OGC API request failed: 403');
+  });
 });
 
 describe('fetchCollectionDetail', () => {
@@ -476,6 +499,29 @@ describe('fetchCollectionDetail', () => {
     expect(result).toEqual(collection);
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(calledUrl).toContain('/collections/roads?f=json');
+  });
+
+  it('passes header auth', async () => {
+    const collection = { id: 'roads', title: 'Roads', links: [] };
+    vi.stubGlobal('fetch', mockFetchResponse(collection));
+    await fetchCollectionDetail(BASE, 'roads', HEADER_AUTH);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/collections/roads'),
+      { headers: { Authorization: 'Bearer tok' } },
+    );
+  });
+
+  it('appends query_param auth to URL', async () => {
+    const collection = { id: 'roads', title: 'Roads', links: [] };
+    vi.stubGlobal('fetch', mockFetchResponse(collection));
+    await fetchCollectionDetail(BASE, 'roads', QUERY_AUTH);
+    const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(calledUrl).toContain('apikey=abc123');
+  });
+
+  it('throws on non-OK response', async () => {
+    vi.stubGlobal('fetch', mockFetchError(404));
+    await expect(fetchCollectionDetail(BASE, 'roads')).rejects.toThrow('OGC API request failed: 404');
   });
 });
 
