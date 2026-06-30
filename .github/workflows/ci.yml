@@ -25,3 +25,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
+      # App suites run separately — they can't share `pnpm test` (lib-only)
+      - name: admin-app tests
+        run: cd apps/admin-app && pnpm exec vitest run
+      - name: map-client tests
+        run: cd apps/map-client && pnpm exec vitest run
+      - name: ingest-service unit tests
+        run: pnpm --filter ingest-service test
