@@ -195,7 +195,7 @@ describe('lintMapConfig', () => {
       debounceMs: 250,
       minQueryLength: 2,
       layers: [{ layerId: 'empty-layer', properties: [] }],
-    } as GlobalSearchConfig;
+    } as unknown as GlobalSearchConfig;
     expect(lintMapConfig({ ...empty, globalSearch })).toHaveLength(0);
   });
 
@@ -212,7 +212,7 @@ describe('lintMapConfig', () => {
           { property: 'name' }, // duplicate AND no label
         ],
       }],
-    } as GlobalSearchConfig;
+    } as unknown as GlobalSearchConfig;
     const issues = lintMapConfig({ ...empty, globalSearch });
     // 1 duplicate warning + 1 missing-label warning
     expect(issues).toHaveLength(2);
