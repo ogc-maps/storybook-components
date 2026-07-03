@@ -43,7 +43,12 @@ describe.runIf(RUN)('ingest integration (real ogr2ogr + PostGIS)', () => {
     ogr('-f', 'FlatGeobuf', path.join(dir, 'data.fgb'), geojson);
     ogr('-f', 'KML', path.join(dir, 'data.kml'), geojson);
     ogr('-f', 'CSV', path.join(dir, 'data.csv'), geojson, '-lco', 'GEOMETRY=AS_WKT');
-    ogr('-f', 'ESRI Shapefile', `/vsizip/${path.join(dir, 'shp.zip')}/places.shp`, geojson);
+    // Write the shapefile to a plain dir, then zip it — newer GDAL rejects
+    // random-access writes into /vsizip.
+    const shpDir = path.join(dir, 'shp');
+    fs.mkdirSync(shpDir);
+    ogr('-f', 'ESRI Shapefile', path.join(shpDir, 'places.shp'), geojson);
+    execFileSync('zip', ['-j', path.join(dir, 'shp.zip'), ...fs.readdirSync(shpDir).map((f) => path.join(shpDir, f))], { stdio: 'pipe' });
     // Multi-layer GeoPackage.
     ogr('-f', 'GPKG', path.join(dir, 'multi.gpkg'), geojson, '-nln', 'roads');
     ogr('-f', 'GPKG', '-update', path.join(dir, 'multi.gpkg'), geojson, '-nln', 'rivers');
