@@ -24,11 +24,12 @@ export function useOgcQueryables(
   useEffect(() => {
     if (!baseUrl || !collectionId) return;
 
+    const controller = new AbortController();
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    fetchQueryables(baseUrl, collectionId)
+    fetchQueryables(baseUrl, collectionId, undefined, controller.signal)
       .then((data) => {
         if (!cancelled) {
           setQueryables(data);
@@ -47,6 +48,7 @@ export function useOgcQueryables(
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [baseUrl, collectionId]);
 

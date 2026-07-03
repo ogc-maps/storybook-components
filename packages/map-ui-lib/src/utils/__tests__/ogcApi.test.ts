@@ -724,3 +724,79 @@ describe('error handling (fetchJson)', () => {
     await expect(fetchCollections(BASE)).rejects.toThrow(BASE);
   });
 });
+
+// ─── AbortSignal threading ───────────────────────────────────────────────────
+
+describe('AbortSignal threading', () => {
+  it('fetchCollections passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ collections: [] }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchCollections(BASE, undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('fetchQueryables passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ type: 'object', properties: {} }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchQueryables(BASE, 'roads', undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('fetchCollectionDetail passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: 'roads', links: [] }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchCollectionDetail(BASE, 'roads', undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('fetchFeatures passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ type: 'FeatureCollection', features: [] }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchFeatures(BASE, 'roads', {}, undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('rejects with AbortError when signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(
+      Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
+    ));
+
+    await expect(fetchCollections(BASE, undefined, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
+});
