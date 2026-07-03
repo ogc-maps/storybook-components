@@ -352,6 +352,14 @@ describe('fetchCollections', () => {
     vi.stubGlobal('fetch', mockFetchError(500));
     await expect(fetchCollections(BASE)).rejects.toThrow('OGC API request failed: 500');
   });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ collections: [] }));
+    const controller = new AbortController();
+    await fetchCollections(BASE, undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
+  });
 });
 
 describe('fetchFeatures', () => {
@@ -465,6 +473,14 @@ describe('fetchQueryables', () => {
     expect(calledUrl).toContain('/collections/roads/queryables');
     expect(calledUrl).toContain('f=schemajson');
   });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ type: 'object', properties: {} }));
+    const controller = new AbortController();
+    await fetchQueryables(BASE, 'roads', undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
+  });
 });
 
 describe('fetchCollectionDetail', () => {
@@ -477,6 +493,14 @@ describe('fetchCollectionDetail', () => {
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(calledUrl).toContain('/collections/roads?f=json');
   });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ id: 'roads', links: [] }));
+    const controller = new AbortController();
+    await fetchCollectionDetail(BASE, 'roads', undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
+  });
 });
 
 describe('fetchConformance', () => {
@@ -488,6 +512,14 @@ describe('fetchConformance', () => {
     expect(result.conformsTo).toHaveLength(1);
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(calledUrl).toContain('/conformance?f=json');
+  });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ conformsTo: [] }));
+    const controller = new AbortController();
+    await fetchConformance(BASE, undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
   });
 });
 
