@@ -117,6 +117,8 @@ export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
       '#f0f0f0',
     ],
   },
+  // The Wong 2011 palette defines exactly 8 colors by design; getColorFromTheme
+  // cycles via modulo so callers don't need to guard against palette length.
   accessible: {
     id: 'accessible',
     label: 'Accessible',
