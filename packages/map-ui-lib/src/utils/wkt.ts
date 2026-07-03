@@ -9,8 +9,13 @@ function ringToWkt(ring: Ring): string {
   return ring.map(coordToWkt).join(', ');
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function geojsonGeometryToWkt(geometry: any): string {
+type GeoJsonGeometry = {
+  type: string;
+  coordinates?: unknown;
+  geometries?: GeoJsonGeometry[];
+} | null | undefined;
+
+export function geojsonGeometryToWkt(geometry: GeoJsonGeometry): string {
   if (!geometry || !geometry.type) return '';
 
   switch (geometry.type) {

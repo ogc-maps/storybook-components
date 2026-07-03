@@ -45,16 +45,14 @@ export function useOgcFeatures(
     setLoading(true);
     setError(null);
 
-    const opts: FetchFeaturesOptions = JSON.parse(optionsKey);
-
-    fetchFeatures(baseUrl, collection, opts, auth, controller.signal)
+    fetchFeatures(baseUrl, collection, options, auth, controller.signal)
       .then((data: OgcFeatureCollection) => {
         if (!cancelled) {
           setFeatures(data.features);
 
           // Determine if more results are available
-          const limit = opts.limit ?? 10;
-          const offset = opts.offset ?? 0;
+          const limit = options.limit ?? 10;
+          const offset = options.offset ?? 0;
           if (data.numberMatched != null) {
             setHasMore(offset + data.features.length < data.numberMatched);
           } else {

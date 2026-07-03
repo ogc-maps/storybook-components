@@ -211,3 +211,12 @@ describe('buildHighlightFeatureCollection', () => {
     expect(fc?.features[0].type).toBe('Feature');
   });
 });
+
+describe('selectedFeatureKey stable serialization', () => {
+  it('sorts property keys so insertion order does not change the key', () => {
+    const a = base({ properties: { name: 'Alice', age: 30 } });
+    const b = base({ properties: { age: 30, name: 'Alice' } });
+    expect(selectedFeatureKey(a)).toBe(selectedFeatureKey(b));
+    expect(selectedFeatureKey(a)).toBe('layer-a:{"age":30,"name":"Alice"}');
+  });
+});
