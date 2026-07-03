@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - name: Install GDAL (ogr2ogr/ogrinfo)
         run: sudo apt-get update && sudo apt-get install -y gdal-bin
       - run: pnpm install --frozen-lockfile
