@@ -26,6 +26,8 @@ jobs:
       - run: pnpm build
       - run: pnpm test
       # App + sidecar suites aren't part of `pnpm test` (lib only) — run them here.
+      - name: map-client tests
+        run: cd apps/map-client && pnpm exec vitest run
       - name: admin-app tests
         run: cd apps/admin-app && pnpm exec vitest run
       - name: ingest-service unit tests
