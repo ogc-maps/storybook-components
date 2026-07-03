@@ -593,8 +593,7 @@ export function getVectorTileSourceKey(layerId: string, cql2Filter?: CQL2Express
  * Build a MapLibre geometry-type filter expression for restricting which
  * geometry types a layer renders.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildGeometryFilter(types: string[]): any {
+export function buildGeometryFilter(types: string[]): unknown[] {
   return types.length === 1
     ? ['==', ['geometry-type'], types[0]]
     : ['in', ['geometry-type'], ['literal', types]];
