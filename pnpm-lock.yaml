@@ -31,7 +31,7 @@ importers:
     dependencies:
       '@ngageoint/geopackage':
         specifier: ^4.2.0
-        version: 4.2.6
+        version: 4.2.6(geotiff@3.0.4)
       '@ogc-maps/storybook-components':
         specifier: workspace:*
         version: link:../../packages/map-ui-lib
@@ -225,7 +225,7 @@ importers:
     dependencies:
       '@ngageoint/geopackage':
         specifier: ^4.2.0
-        version: 4.2.6
+        version: 4.2.6(geotiff@3.0.4)
       '@ogc-maps/storybook-components':
         specifier: workspace:*
         version: link:../../packages/map-ui-lib
@@ -246,7 +246,7 @@ importers:
         version: 7.3.4
       '@types/proj4':
         specifier: ^2.19.0
-        version: 2.19.0
+        version: 2.19.0(geotiff@3.0.4)
       flatgeobuf:
         specifier: ^3.32.0
         version: 3.38.0
@@ -263,8 +263,8 @@ importers:
         specifier: ^2.2.4
         version: 2.8.8(react-router-dom@7.17.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-router@7.17.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       proj4:
-        specifier: ^2.20.2
-        version: 2.20.2
+        specifier: ^2.20.9
+        version: 2.20.9(geotiff@3.0.4)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -414,7 +414,7 @@ importers:
         version: 0.4.3(patch_hash=20b62abb4269f7d3a15b76d0a6e98cfc1de394940b257ab4c6eb9ce29ea4b6a6)
       '@ngageoint/geopackage':
         specifier: ^4.2.0
-        version: 4.2.6
+        version: 4.2.6(geotiff@3.0.4)
       '@tmcw/tokml':
         specifier: ^1.0.0-alpha.0
         version: 1.0.0-alpha.0
@@ -4376,8 +4376,13 @@ packages:
     resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
     engines: {node: '>= 0.6.0'}
 
-  proj4@2.20.2:
-    resolution: {integrity: sha512-ipfBRfQly0HhHTO7hnC1GfaX8bvroO7VV4KH889ehmADSE8C/qzp2j+Jj6783S9Tj6c2qX/hhYm7oH0kgXzBAA==}
+  proj4@2.20.9:
+    resolution: {integrity: sha512-GLBGqXaTcdWnppre3o1sMmy4DcMGSGq/ng+9k2MTNddarRK6SveINqlqYzi3xEXuy06ljY1TTrC6H9C4f360IQ==}
+    peerDependencies:
+      geotiff: '*'
+    peerDependenciesMeta:
+      geotiff:
+        optional: true
 
   proj4@2.8.0:
     resolution: {integrity: sha512-baC+YcD4xsSqJ+CpCZljj2gcQDhlKb+J+Zjv/2KSBwWNjk4M0pafgQsE+mWurd84tflMIsP+7j7mtIpFDHzQfQ==}
@@ -5455,8 +5460,8 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
-  wkt-parser@1.5.2:
-    resolution: {integrity: sha512-1ZUiV1FTwSiSrgWzV9KXJuOF2BVW91KY/mau04BhnmgOdroRQea7Q0s5TVqwGLm0D2tZwObd/tBYXW49sSxp3Q==}
+  wkt-parser@1.5.5:
+    resolution: {integrity: sha512-/zMYi94/7D7fxcOSlVmWn6vnOMj3Gq5d1xvVjaYOS9n6h0qOJ4I7YYVxBWYcH1vq9+suhqzXkn05Yx47zQNUIA==}
 
   wkx@0.4.8:
     resolution: {integrity: sha512-ikPXMM9IR/gy/LwiOSqWlSL3X/J5uk9EO2hHNRXS41eTLXaUFEVw9fn/593jW/tE5tedNg8YjT5HkCa4FqQZyQ==}
@@ -6431,7 +6436,7 @@ snapshots:
 
   '@neoconfetti/react@1.0.0': {}
 
-  '@ngageoint/geopackage@4.2.6':
+  '@ngageoint/geopackage@4.2.6(geotiff@3.0.4)':
     dependencies:
       '@turf/bbox': 6.3.0
       '@turf/boolean-clockwise': 6.5.0
@@ -6449,7 +6454,7 @@ snapshots:
       image-size: 0.8.3
       lodash: 4.18.1
       proj4: 2.8.0
-      reproject: 1.2.5
+      reproject: 1.2.5(geotiff@3.0.4)
       rtree-sql.js: 1.7.0
       simplify-js: 1.2.4
       webworkify: 1.5.0
@@ -6458,6 +6463,8 @@ snapshots:
       better-sqlite3: 9.6.0
       chalk: 4.1.1
       inquirer: 8.0.0
+    transitivePeerDependencies:
+      - geotiff
 
   '@noble/hashes@1.8.0': {}
 
@@ -7225,9 +7232,11 @@ snapshots:
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 
-  '@types/proj4@2.19.0':
+  '@types/proj4@2.19.0(geotiff@3.0.4)':
     dependencies:
-      proj4: 2.20.2
+      proj4: 2.20.9(geotiff@3.0.4)
+    transitivePeerDependencies:
+      - geotiff
 
   '@types/proj4@2.5.2': {}
 
@@ -9779,15 +9788,17 @@ snapshots:
 
   process@0.11.10: {}
 
-  proj4@2.20.2:
+  proj4@2.20.9(geotiff@3.0.4):
     dependencies:
       mgrs: 1.0.0
-      wkt-parser: 1.5.2
+      wkt-parser: 1.5.5
+    optionalDependencies:
+      geotiff: 3.0.4
 
   proj4@2.8.0:
     dependencies:
       mgrs: 1.0.0
-      wkt-parser: 1.5.2
+      wkt-parser: 1.5.5
 
   property-information@7.1.0: {}
 
@@ -10031,13 +10042,15 @@ snapshots:
       mdast-util-to-markdown: 2.1.2
       unified: 11.0.5
 
-  reproject@1.2.5:
+  reproject@1.2.5(geotiff@3.0.4):
     dependencies:
       concat-stream: 2.0.0
       event-stream: 4.0.1
       geojson-stream: 0.1.0
       minimist: 1.2.8
-      proj4: 2.20.2
+      proj4: 2.20.9(geotiff@3.0.4)
+    transitivePeerDependencies:
+      - geotiff
 
   require-directory@2.1.1: {}
 
@@ -10981,7 +10994,7 @@ snapshots:
       siginfo: 2.0.0
       stackback: 0.0.2
 
-  wkt-parser@1.5.2: {}
+  wkt-parser@1.5.5: {}
 
   wkx@0.4.8:
     dependencies:
