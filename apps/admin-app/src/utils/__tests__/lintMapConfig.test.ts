@@ -22,10 +22,11 @@ describe('isSearchFieldTypeCompatible', () => {
     return { type, property, label: '' };
   };
 
-  it('text fields accept string + unknown but not number/boolean', () => {
+  it('text fields accept string + unknown but not number/integer/boolean', () => {
     expect(isSearchFieldTypeCompatible(f('text'), ap('string'))).toBe(true);
     expect(isSearchFieldTypeCompatible(f('text'), ap(''))).toBe(true);
     expect(isSearchFieldTypeCompatible(f('text'), ap('number'))).toBe(false);
+    expect(isSearchFieldTypeCompatible(f('text'), ap('integer'))).toBe(false);
     expect(isSearchFieldTypeCompatible(f('text'), ap('boolean'))).toBe(false);
   });
 
@@ -33,6 +34,15 @@ describe('isSearchFieldTypeCompatible', () => {
     expect(isSearchFieldTypeCompatible(f('number'), ap('number'))).toBe(true);
     expect(isSearchFieldTypeCompatible(f('number'), ap('integer'))).toBe(true);
     expect(isSearchFieldTypeCompatible(f('number'), ap('string'))).toBe(false);
+    expect(isSearchFieldTypeCompatible(f('number'), ap('boolean'))).toBe(false);
+  });
+
+  it('select fields accept any scalar type except boolean', () => {
+    expect(isSearchFieldTypeCompatible(f('select'), ap('string'))).toBe(true);
+    expect(isSearchFieldTypeCompatible(f('select'), ap('number'))).toBe(true);
+    expect(isSearchFieldTypeCompatible(f('select'), ap('integer'))).toBe(true);
+    expect(isSearchFieldTypeCompatible(f('select'), ap(''))).toBe(true);
+    expect(isSearchFieldTypeCompatible(f('select'), ap('boolean'))).toBe(false);
   });
 
   it('datetime fields accept date/date-time format strings', () => {
@@ -126,6 +136,69 @@ describe('lintMapConfig', () => {
     expect(issues).toHaveLength(0);
   });
 
+  it('does not flag an imagery row with a sourceId + collection', () => {
+    const issues = lintMapConfig({
+      ...empty,
+      imageryLayers: [{ ...baseImagery, sourceId: 's1', collection: 'ortho' }],
+    });
+    expect(issues).toHaveLength(0);
+  });
+
+  it('reports errors only for incomplete imagery rows when mixed with complete ones', () => {
+    const issues = lintMapConfig({
+      ...empty,
+      imageryLayers: [
+        { ...baseImagery, id: 'ok', tileUrlTemplate: 'https://example.com/{z}/{x}/{y}.png' },
+        { ...baseImagery, id: 'bad1' }, // incomplete
+        { ...baseImagery, id: 'ok2', sourceId: 's1', collection: 'c1' },
+        { ...baseImagery, id: 'bad2' }, // incomplete
+      ],
+    });
+    expect(issues).toHaveLength(2);
+    expect(issues[0].remediation).toEqual({ kind: 'remove-imagery-row', index: 1 });
+    expect(issues[1].remediation).toEqual({ kind: 'remove-imagery-row', index: 3 });
+  });
+
+  it('skips search-field validation for a layer whose queryables are absent (not loading)', () => {
+    // queryablesLoading not set, queryablesByLayer has no entry → silent skip
+    const layer: LayerConfig = {
+      id: 'roads',
+      label: 'Roads',
+      sourceId: 's1',
+      collection: 'roads',
+      styles: [],
+      search: { fields: [{ type: 'text', property: 'phantom_field', label: 'X', autocomplete: false }] },
+    } as unknown as LayerConfig;
+    const issues = lintMapConfig({
+      ...empty,
+      layers: [layer],
+      queryablesByLayer: {}, // no entry for 'roads'
+    });
+    expect(issues).toHaveLength(0);
+  });
+
+  it('returns no issues for a layer with no search config', () => {
+    const layer: LayerConfig = {
+      id: 'roads',
+      label: 'Roads',
+      sourceId: 's1',
+      collection: 'roads',
+      styles: [],
+    } as unknown as LayerConfig;
+    expect(lintMapConfig({ ...empty, layers: [layer] })).toHaveLength(0);
+  });
+
+  it('handles a global-search entry with an empty properties array', () => {
+    const globalSearch: GlobalSearchConfig = {
+      enabled: true,
+      maxResultsPerLayer: 5,
+      debounceMs: 250,
+      minQueryLength: 2,
+      layers: [{ layerId: 'empty-layer', properties: [] }],
+    } as unknown as GlobalSearchConfig;
+    expect(lintMapConfig({ ...empty, globalSearch })).toHaveLength(0);
+  });
+
   it('warns on duplicate global-search properties + missing labels', () => {
     const globalSearch: GlobalSearchConfig = {
       enabled: true,
@@ -139,7 +212,7 @@ describe('lintMapConfig', () => {
           { property: 'name' }, // duplicate AND no label
         ],
       }],
-    } as GlobalSearchConfig;
+    } as unknown as GlobalSearchConfig;
     const issues = lintMapConfig({ ...empty, globalSearch });
     // 1 duplicate warning + 1 missing-label warning
     expect(issues).toHaveLength(2);

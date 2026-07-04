@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   pushRecentColor,
   _resetColorClipboardForTests,
+  _getRecentColorsForTests,
 } from '../useColorClipboard';
 
 describe('pushRecentColor', () => {
@@ -9,27 +10,25 @@ describe('pushRecentColor', () => {
     _resetColorClipboardForTests();
   });
 
-  it('dedupes and reorders most-recent first', async () => {
-    // Re-import to read fresh recents state via the hook module's
-    // exported reset (state itself is module-private; we observe it via
-    // the next push's effect on what survives the 8-item cap).
+  it('dedupes and reorders most-recent first', () => {
     pushRecentColor('#ff0000');
     pushRecentColor('#00ff00');
     pushRecentColor('#0000ff');
     pushRecentColor('#ff0000'); // dedupe -> moves to front
+    expect(_getRecentColorsForTests()[0]).toBe('#ff0000');
+    expect(_getRecentColorsForTests()).toHaveLength(3);
 
-    // Use dynamic import to inspect via the hook side-effect — but
-    // since recents are module-private, we assert behaviour via the
-    // 8-cap: push 10 unique colors, the earliest two should be evicted.
+    // Push 10 unique colors to exercise the 8-item cap.
+    // Expected final list (MRU order, capped at 8):
+    //   [#000009, #000008, #000007, #000006, #000005, #000004, #000003, #000002]
     for (let i = 0; i < 10; i++) {
       pushRecentColor(`#${i.toString(16).padStart(6, '0')}`);
     }
-    // No throw means the cap logic ran; an explicit assertion via
-    // the hook would require React. The eviction is asserted implicitly:
-    // pushing 14 calls with 11 unique values should not crash and the
-    // store remains finite. This test guards against regressions in
-    // the normalize / hex-validation branches.
-    expect(true).toBe(true);
+
+    const recents = _getRecentColorsForTests();
+    expect(recents).toHaveLength(8);
+    expect(recents[0]).toBe('#000009'); // most recent
+    expect(recents[7]).toBe('#000002'); // oldest surviving (#000000 and #000001 evicted)
   });
 
   it('rejects non-hex strings silently', () => {

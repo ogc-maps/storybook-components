@@ -352,6 +352,14 @@ describe('fetchCollections', () => {
     vi.stubGlobal('fetch', mockFetchError(500));
     await expect(fetchCollections(BASE)).rejects.toThrow('OGC API request failed: 500');
   });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ collections: [] }));
+    const controller = new AbortController();
+    await fetchCollections(BASE, undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
+  });
 });
 
 describe('fetchFeatures', () => {
@@ -465,6 +473,37 @@ describe('fetchQueryables', () => {
     expect(calledUrl).toContain('/collections/roads/queryables');
     expect(calledUrl).toContain('f=schemajson');
   });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ type: 'object', properties: {} }));
+    const controller = new AbortController();
+    await fetchQueryables(BASE, 'roads', undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
+  });
+
+  it('passes header auth', async () => {
+    const queryables = { type: 'object', properties: {} };
+    vi.stubGlobal('fetch', mockFetchResponse(queryables));
+    await fetchQueryables(BASE, 'roads', HEADER_AUTH);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/collections/roads/queryables'),
+      { headers: { Authorization: 'Bearer tok' } },
+    );
+  });
+
+  it('appends query_param auth to URL', async () => {
+    const queryables = { type: 'object', properties: {} };
+    vi.stubGlobal('fetch', mockFetchResponse(queryables));
+    await fetchQueryables(BASE, 'roads', QUERY_AUTH);
+    const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(calledUrl).toContain('apikey=abc123');
+  });
+
+  it('throws on non-OK response', async () => {
+    vi.stubGlobal('fetch', mockFetchError(403));
+    await expect(fetchQueryables(BASE, 'roads')).rejects.toThrow('OGC API request failed: 403');
+  });
 });
 
 describe('fetchCollectionDetail', () => {
@@ -477,6 +516,37 @@ describe('fetchCollectionDetail', () => {
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(calledUrl).toContain('/collections/roads?f=json');
   });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ id: 'roads', links: [] }));
+    const controller = new AbortController();
+    await fetchCollectionDetail(BASE, 'roads', undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
+  });
+
+  it('passes header auth', async () => {
+    const collection = { id: 'roads', title: 'Roads', links: [] };
+    vi.stubGlobal('fetch', mockFetchResponse(collection));
+    await fetchCollectionDetail(BASE, 'roads', HEADER_AUTH);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/collections/roads'),
+      { headers: { Authorization: 'Bearer tok' } },
+    );
+  });
+
+  it('appends query_param auth to URL', async () => {
+    const collection = { id: 'roads', title: 'Roads', links: [] };
+    vi.stubGlobal('fetch', mockFetchResponse(collection));
+    await fetchCollectionDetail(BASE, 'roads', QUERY_AUTH);
+    const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(calledUrl).toContain('apikey=abc123');
+  });
+
+  it('throws on non-OK response', async () => {
+    vi.stubGlobal('fetch', mockFetchError(404));
+    await expect(fetchCollectionDetail(BASE, 'roads')).rejects.toThrow('OGC API request failed: 404');
+  });
 });
 
 describe('fetchConformance', () => {
@@ -488,6 +558,14 @@ describe('fetchConformance', () => {
     expect(result.conformsTo).toHaveLength(1);
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(calledUrl).toContain('/conformance?f=json');
+  });
+
+  it('forwards AbortSignal to fetch', async () => {
+    vi.stubGlobal('fetch', mockFetchResponse({ conformsTo: [] }));
+    const controller = new AbortController();
+    await fetchConformance(BASE, undefined, controller.signal);
+    const fetchOpts = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(fetchOpts.signal).toBe(controller.signal);
   });
 });
 
@@ -722,5 +800,81 @@ describe('error handling (fetchJson)', () => {
   it('includes the request URL in the error message', async () => {
     vi.stubGlobal('fetch', mockFetchError(503, 'Service Unavailable'));
     await expect(fetchCollections(BASE)).rejects.toThrow(BASE);
+  });
+});
+
+// ─── AbortSignal threading ───────────────────────────────────────────────────
+
+describe('AbortSignal threading', () => {
+  it('fetchCollections passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ collections: [] }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchCollections(BASE, undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('fetchQueryables passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ type: 'object', properties: {} }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchQueryables(BASE, 'roads', undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('fetchCollectionDetail passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: 'roads', links: [] }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchCollectionDetail(BASE, 'roads', undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('fetchFeatures passes signal to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ type: 'FeatureCollection', features: [] }),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchFeatures(BASE, 'roads', {}, undefined, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('rejects with AbortError when signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(
+      Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
+    ));
+
+    await expect(fetchCollections(BASE, undefined, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
   });
 });

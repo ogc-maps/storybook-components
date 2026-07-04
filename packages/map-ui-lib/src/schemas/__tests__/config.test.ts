@@ -100,6 +100,21 @@ describe('LayerConfigSchema backward-compat preprocess', () => {
     expect(Array.isArray((result.styles![2] as any).layout['icon-image'])).toBe(true);
   });
 
+  it('accepts expression for text-field (data-driven labels)', () => {
+    const input = {
+      ...base,
+      styles: [
+        {
+          type: 'symbol',
+          paint: { 'text-color': '#000' },
+          layout: { 'text-field': ['get', 'name'], 'text-size': 12 },
+        },
+      ],
+    };
+    const result = LayerConfigSchema.parse(input);
+    expect(Array.isArray((result.styles![0] as any).layout['text-field'])).toBe(true);
+  });
+
   it('still accepts plain number/string values for line-width, circle-radius, icon-image (back-compat)', () => {
     const input = {
       ...base,

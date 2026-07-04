@@ -86,16 +86,17 @@ export function LayerEditor({ value, onChange, availableSources, availableIcons,
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Resolve baseUrl from the selected source
+  // Resolve baseUrl and auth from the selected source
   const source = availableSources.find((s) => s.id === value.sourceId);
   const baseUrl = source?.url ?? null;
+  const sourceAuth = source?.auth;
   const collection = value.collection || null;
 
   // Fetch collections for the dropdown
-  const { collections, loading: collectionsLoading } = useOgcCollections(baseUrl);
+  const { collections, loading: collectionsLoading } = useOgcCollections(baseUrl, sourceAuth);
 
   // Fetch queryables when a collection is selected
-  const { queryables, loading: queryablesLoading } = useOgcQueryables(baseUrl, collection);
+  const { queryables, loading: queryablesLoading } = useOgcQueryables(baseUrl, collection, sourceAuth);
 
   // Derive available non-geometry properties
   const availableProperties: AvailableProperty[] = queryables

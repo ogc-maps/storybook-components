@@ -195,7 +195,7 @@ export const SymbolLayoutSchema = z.object({
   'icon-pitch-alignment': z.enum(['map', 'viewport', 'auto']).optional(),
   'text-pitch-alignment': z.enum(['map', 'viewport', 'auto']).optional(),
   'text-rotation-alignment': z.enum(['map', 'viewport', 'viewport-glyph', 'auto']).optional(),
-  'text-field': z.string().optional(),
+  'text-field': stringOrExprOptional(),
   'text-font': z.array(z.string()).optional(),
   'text-size': z.number().min(0).optional(),
   'text-max-width': z.number().min(0).optional(),

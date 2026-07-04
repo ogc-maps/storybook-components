@@ -28,6 +28,60 @@ describe('bboxFromGeometry', () => {
   it('returns null for an empty geometry', () => {
     expect(bboxFromGeometry({ type: 'Polygon', coordinates: [] })).toBeNull();
   });
+
+  it('computes bbox for a MultiPoint', () => {
+    const bbox = bboxFromGeometry({
+      type: 'MultiPoint',
+      coordinates: [[0, 1], [5, 3], [2, 8]],
+    });
+    expect(bbox).toEqual([0, 1, 5, 8]);
+  });
+
+  it('computes bbox for a LineString', () => {
+    const bbox = bboxFromGeometry({
+      type: 'LineString',
+      coordinates: [[-10, 0], [10, 5], [0, -3]],
+    });
+    expect(bbox).toEqual([-10, -3, 10, 5]);
+  });
+
+  it('computes bbox for a MultiLineString', () => {
+    const bbox = bboxFromGeometry({
+      type: 'MultiLineString',
+      coordinates: [[[0, 0], [1, 1]], [[3, 4], [5, 2]]],
+    });
+    expect(bbox).toEqual([0, 0, 5, 4]);
+  });
+
+  it('computes bbox for a MultiPolygon', () => {
+    const bbox = bboxFromGeometry({
+      type: 'MultiPolygon',
+      coordinates: [
+        [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+        [[[5, 5], [8, 5], [8, 9], [5, 9], [5, 5]]],
+      ],
+    });
+    expect(bbox).toEqual([0, 0, 8, 9]);
+  });
+
+  it('computes bbox for a GeometryCollection by combining member geometries', () => {
+    const bbox = bboxFromGeometry({
+      type: 'GeometryCollection',
+      geometries: [
+        { type: 'Point', coordinates: [-5, 2] },
+        { type: 'Point', coordinates: [7, -1] },
+      ],
+    });
+    // GeometryCollection bbox should span both points (no per-point padding)
+    expect(bbox![0]).toBeLessThanOrEqual(-5);
+    expect(bbox![2]).toBeGreaterThanOrEqual(7);
+    expect(bbox![1]).toBeLessThanOrEqual(-1);
+    expect(bbox![3]).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns null for an unknown geometry type', () => {
+    expect(bboxFromGeometry({ type: 'Unknown', coordinates: [[0, 0]] })).toBeNull();
+  });
 });
 
 describe('combineGeometries', () => {

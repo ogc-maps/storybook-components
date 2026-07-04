@@ -83,6 +83,11 @@ export function _resetColorClipboardForTests(): void {
   notify();
 }
 
+/** Test helper: read the current recents list without going through the hook. */
+export function _getRecentColorsForTests(): readonly string[] {
+  return recents;
+}
+
 export interface UseColorClipboardResult {
   /** The most recently copied color, or null if nothing has been copied. */
   clipboard: string | null;

@@ -98,7 +98,11 @@ export interface FetchFeaturesOptions {
   offset?: number;
   properties?: string[];
   datetime?: string;
-  /** @deprecated Use cql2Filter instead. Simple key-value equality filters. */
+  /**
+   * @deprecated Use `cql2Filter` instead. This field will be removed in the
+   * next major release. Build an equality expression with the `eq` / `and`
+   * helpers from `./cql2` and pass it as `cql2Filter`.
+   */
   filter?: Record<string, string | number>;
   /** CQL2 JSON filter expression. When provided, takes precedence over filter. */
   cql2Filter?: CQL2Expression;
@@ -141,9 +145,13 @@ async function fetchJson<T>(url: string, auth?: SourceAuth, signal?: AbortSignal
  * Fetch the list of collections from an OGC API endpoint.
  * @throws {Error} If the request fails or the response status is not OK.
  */
-export async function fetchCollections(baseUrl: string, auth?: SourceAuth): Promise<OgcCollection[]> {
+export async function fetchCollections(
+  baseUrl: string,
+  auth?: SourceAuth,
+  signal?: AbortSignal,
+): Promise<OgcCollection[]> {
   const url = `${stripTrailingSlash(baseUrl)}/collections?f=json`;
-  const data = await fetchJson<OgcCollectionsResponse>(url, auth);
+  const data = await fetchJson<OgcCollectionsResponse>(url, auth, signal);
   return data.collections;
 }
 
@@ -215,10 +223,11 @@ export async function fetchQueryables(
   baseUrl: string,
   collection: string,
   auth?: SourceAuth,
+  signal?: AbortSignal,
 ): Promise<OgcQueryables> {
   const base = stripTrailingSlash(baseUrl);
   const url = `${base}/collections/${encodeURIComponent(collection)}/queryables?f=schemajson`;
-  return fetchJson<OgcQueryables>(url, auth);
+  return fetchJson<OgcQueryables>(url, auth, signal);
 }
 
 /**
@@ -229,19 +238,24 @@ export async function fetchCollectionDetail(
   baseUrl: string,
   collectionId: string,
   auth?: SourceAuth,
+  signal?: AbortSignal,
 ): Promise<OgcCollection> {
   const base = stripTrailingSlash(baseUrl);
   const url = `${base}/collections/${encodeURIComponent(collectionId)}?f=json`;
-  return fetchJson<OgcCollection>(url, auth);
+  return fetchJson<OgcCollection>(url, auth, signal);
 }
 
 /**
  * Fetch the OGC API conformance declaration to discover server capabilities.
  * @throws {Error} If the request fails or the response status is not OK.
  */
-export async function fetchConformance(baseUrl: string, auth?: SourceAuth): Promise<OgcConformance> {
+export async function fetchConformance(
+  baseUrl: string,
+  auth?: SourceAuth,
+  signal?: AbortSignal,
+): Promise<OgcConformance> {
   const url = `${stripTrailingSlash(baseUrl)}/conformance?f=json`;
-  return fetchJson<OgcConformance>(url, auth);
+  return fetchJson<OgcConformance>(url, auth, signal);
 }
 
 /**
@@ -591,8 +605,7 @@ export function getVectorTileSourceKey(layerId: string, cql2Filter?: CQL2Express
  * Build a MapLibre geometry-type filter expression for restricting which
  * geometry types a layer renders.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildGeometryFilter(types: string[]): any {
+export function buildGeometryFilter(types: string[]): unknown[] {
   return types.length === 1
     ? ['==', ['geometry-type'], types[0]]
     : ['in', ['geometry-type'], ['literal', types]];
