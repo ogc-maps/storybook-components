@@ -1,5 +1,32 @@
 # @ogc-maps/storybook-components
 
+## 0.17.0
+
+### Minor Changes
+
+- a1366e9: Add map-agnostic data-editing primitives for the "my data" row CRUD feature:
+
+  - **`GeometryEditor`** — a fully controlled, framework-agnostic geometry editor with Draw / WKT / Coordinates tabs. The Draw tab renders an app-injected `mapSlot` (the library never imports a map); the WKT tab is a textarea backed by the new parser; the Coordinates tab is a structured `[lng, lat]` list editor for simple Point/LineString/Polygon geometries and steers users to WKT/Draw for complex types.
+  - **`AttributeForm`** — a controlled attribute editor that renders one input per column, choosing the input type (number / boolean / date / datetime / text) from the column's Postgres data type. Also exports `attributeInputKind`.
+  - **`wktToGeojsonGeometry`** — reverse of `geojsonGeometryToWkt`. Parses Point, MultiPoint (both member forms), LineString, MultiLineString, Polygon, MultiPolygon and nested GeometryCollection; case-insensitive, whitespace-tolerant, `EMPTY`-aware; returns `null` on any failure (never throws). `wkt.ts` is now exported from the utils barrel.
+  - **geometry utils** (`isValidGeometry`, `geometryToCoordinateList`, `coordinateListToGeometry`) — pure helpers for structural validation (with lng/lat bounds and closed-ring checks) and converting between simple geometries and flat coordinate lists.
+
+- f39093b: Legend: improve outline swatches. `outline-square` and `outline-circle` now render via SVG with sharp 90° corners on the square and a slightly larger 14px footprint so the two shapes are easier to tell apart. The existing `dasharray` field on `LegendEntry` is now honored for outline shapes too, producing a dashed border (previously dashed-only worked for the `line` shape). No schema or API change.
+- d4e7e6c: LayerEditor/LayerList: add an optional `availableSourceGroups` prop so the source
+  picker can group choices (e.g. "My Data" vs "External Sources") with `<optgroup>`
+  headers. Backward-compatible — omitting it preserves the existing flat list. Also
+  exports the new `buildSourceOptionGroups` helper and `SourceGroup`/
+  `SourceOptionGroup` types.
+- 14f9314: LayerList: optional controlled draft-layer props (`draftLayer`, `onDraftChange`) so consumers can render the in-progress new-layer in a live preview before "Save Layer" is clicked. Backwards-compatible — when both props are omitted, the existing internal-state behavior is preserved.
+
+### Patch Changes
+
+- 4aa4aef: Harden export converters against real-world data (found via export→import round-trip QA):
+
+  - **Null geometry no longer breaks KML / Shapefile / FlatGeobuf / GeoPackage exports.** KML, Shapefile, and FlatGeobuf serializers dereferenced `geometry.type` and threw on null; GeoPackage didn't crash but wrote null-geometry rows as empty point geometries (forcing the table to MULTIPOINT and round-tripping the wrong feature count). All four spatial/binary formats now skip null-geometry features before serializing, so they agree on feature count. CSV and GeoJSON keep tolerating nulls (text formats can legitimately carry them). Shapefile still errors when _every_ feature lacks geometry.
+  - **Shapefile `.shx` is no longer corrupt for line layers.** `@mapbox/shp-write` collapsed all polyline features into a single multi-part record (`.shx` had 1 index entry for N features) while the `.dbf` kept N rows, so GDAL rejected the file with "Inconsistent record number in .shx (1) and .dbf (N)". Fixed via a `pnpm` patch to shp-write so each line feature gets its own record, and the line layer now uses the collection id as its filename instead of the `POLYLINE` fallback.
+  - **FlatGeobuf exports now embed CRS metadata (EPSG:4326).** Previously importers logged "no CRS found — assumed EPSG:4326"; the CRS84/EPSG:4326 code is now written into the FGB header.
+
 ## 0.16.0
 
 ### Minor Changes
