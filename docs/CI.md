@@ -6,7 +6,7 @@ This repository uses GitHub Actions for continuous integration, container publis
 
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
-| CI | `ci.yml` | Pull requests to `main` | Build and test |
+| CI | `ci.yml` | PRs to `main`/`ai/main`, push to `ai/main` | Build, unit + integration tests |
 | Release | `release.yml` | Push to `main` | Version bumps and npm publish |
 | Publish Containers | `publish-containers.yml` | Push to `main`, release published | Build/scan/push Docker images |
 | Docs | `docs.yml` | Push to `main` | Deploy Storybook to GitHub Pages |
@@ -14,9 +14,10 @@ This repository uses GitHub Actions for continuous integration, container publis
 
 ## CI (`ci.yml`)
 
-Runs on every pull request targeting `main`. Builds the full monorepo and runs the test suite.
+Runs on every pull request targeting `main` or `ai/main`, and on every push to `ai/main`. Two jobs:
 
-**Steps**: checkout, setup Node 22 + pnpm, `pnpm install --frozen-lockfile`, `pnpm build`, `pnpm test`
+- **`test`**: checkout, setup Node 22 + pnpm, `pnpm install --frozen-lockfile`, `pnpm build`, then `pnpm test:coverage` (lib, with coverage thresholds enforced), followed by dedicated steps for `map-client` (`vitest run`), `admin-app` (`vitest run --coverage`), and `ingest-service` (`pnpm --filter ingest-service test`) — these app/sidecar suites aren't covered by the root `pnpm test`.
+- **`ingest-integration`**: spins up a `postgis/postgis` service container and runs `apps/ingest-service/src/ingest.integration.test.ts` against real `ogr2ogr`/GDAL and PostGIS (`INGEST_INTEGRATION=1`).
 
 Concurrency is set to cancel in-progress runs for the same branch, so pushing new commits to a PR cancels the previous run.
 

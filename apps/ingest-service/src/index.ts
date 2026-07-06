@@ -182,6 +182,7 @@ const isMainModule =
 
 if (isMainModule) {
   void sweepStaleTempDirs();
+  setInterval(() => void sweepStaleTempDirs(), 60 * 60 * 1000).unref();
   app.listen(PORT, () => {
     console.log(`Ingest service listening on http://localhost:${PORT}`);
   });

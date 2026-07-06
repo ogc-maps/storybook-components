@@ -3,7 +3,7 @@ export { useOgcCollections, type UseOgcCollectionsResult } from './useOgcCollect
 export { useOgcFeatures, type UseOgcFeaturesResult } from './useOgcFeatures';
 export { useCsvExport, type UseCsvExportOptions, type UseCsvExportResult } from './useCsvExport';
 export { useExport, type UseExportOptions, type UseExportResult, type FormatConverter } from './useExport';
-export { featuresToCsv, type CsvExportOptions } from '../utils/csvExport';
+export { featuresToCsv, downloadCsv, type CsvExportOptions } from '../utils/csvExport';
 export { downloadBlob } from '../utils/download';
 export { DEFAULT_EXPORT_FORMATS } from '../utils/exportFormats';
 export { useOgcQueryables, type UseOgcQueryablesResult } from './useOgcQueryables';
