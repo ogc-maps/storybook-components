@@ -101,7 +101,7 @@
     "@mapbox/shp-write": "^0.4.3",
     "@ngageoint/geopackage": "^4.2.0",
     "@tmcw/tokml": "^1.0.0-alpha.0",
-    "flatgeobuf": "^3.32.0"
+    "flatgeobuf": "^4.4.0"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.1.1",

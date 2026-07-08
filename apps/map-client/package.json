@@ -19,7 +19,7 @@
     "@turf/boolean-point-in-polygon": "^7.3.4",
     "@turf/helpers": "^7.3.4",
     "@types/proj4": "^2.19.0",
-    "flatgeobuf": "^3.32.0",
+    "flatgeobuf": "^4.4.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "maplibre-gl": "^4.7.1",
