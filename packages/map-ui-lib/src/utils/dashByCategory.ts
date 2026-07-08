@@ -54,12 +54,33 @@ export function slugifyDashCaseValue(v: string | number): string {
  * `dashByCategory` (callers should fall back to rendering a single layer
  * with the original paint).
  */
+/**
+ * Reserve a unique `idSuffix`, appending `-2`, `-3`, ... on collision. Distinct
+ * case values can slugify to the same string (e.g. `"US Hwy 50"` and
+ * `"US-Hwy-50"` both become `US_Hwy_50`), and a case value can even collide
+ * with the literal `dash--default` suffix reserved for the default-case
+ * layer. MapLibre requires unique `<Layer>` ids, so an unresolved collision
+ * means the second layer silently fails to render.
+ */
+function reserveSuffix(seen: Set<string>, base: string): string {
+  if (!seen.has(base)) {
+    seen.add(base);
+    return base;
+  }
+  let i = 2;
+  while (seen.has(`${base}-${i}`)) i++;
+  const suffix = `${base}-${i}`;
+  seen.add(suffix);
+  return suffix;
+}
+
 export function expandDashByCategory(style: LineStyle): ExpandedDashSubLayer[] {
   const cfg: DashByCategory | undefined = style.dashByCategory;
   if (!cfg || !cfg.cases.length) return [];
 
+  const usedSuffixes = new Set<string>();
   const out: ExpandedDashSubLayer[] = cfg.cases.map((c) => ({
-    idSuffix: `dash--${slugifyDashCaseValue(c.value)}`,
+    idSuffix: reserveSuffix(usedSuffixes, `dash--${slugifyDashCaseValue(c.value)}`),
     dasharray: c.dasharray,
     filter: ['==', ['get', cfg.property], c.value],
     label: String(c.value),
@@ -86,7 +107,7 @@ export function expandDashByCategory(style: LineStyle): ExpandedDashSubLayer[] {
       ['all', ...caseValues.map((v) => ['!=', ['get', cfg.property], v])],
     ];
     out.push({
-      idSuffix: 'dash--default',
+      idSuffix: reserveSuffix(usedSuffixes, 'dash--default'),
       dasharray: cfg.default,
       filter: negatedFilter,
       label: '',

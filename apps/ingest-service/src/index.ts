@@ -84,10 +84,15 @@ app.post('/layers', upload.single('file'), async (req, res) => {
   let srcPath = req.file.path;
   try {
     const requested = (field(req, 'format') ?? 'auto') as FormatId | 'auto';
+    const geomField = field(req, 'geomField');
+    if (geomField && !isValidGeomField(geomField)) {
+      res.status(400).json({ error: 'invalid geomField (expected a column name)' });
+      return;
+    }
     const head = await readHead(srcPath);
     const format = resolveFormat(requested, req.file.originalname, head); // validate type
     srcPath = await ensureExtension(srcPath, format);
-    const { layers } = await inspectSource(srcPath, { format, geomField: field(req, 'geomField') });
+    const { layers } = await inspectSource(srcPath, { format, geomField });
     res.json({ layers });
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });

@@ -172,6 +172,16 @@ export type BrandingConfig = z.infer<typeof BrandingConfigSchema>;
 export type InfoConfig = z.infer<typeof InfoConfigSchema>;
 export type { InfoPosition } from '../schemas/config';
 export type MapConfig = z.infer<typeof MapConfigSchema>;
+/**
+ * Pre-validation shape for hand-authored config literals. `MapConfig` is the
+ * post-`.parse()` output type, so every field with a Zod `.default()` (e.g.
+ * `layers[].styles`'s legacy `style` alias, `ui`, `initialView.pitch`) is
+ * required on it even though the schema fills it in at parse time. Annotate
+ * literals you intend to pass through `validateMapConfig`/
+ * `safeValidateMapConfig` as `MapConfigInput` instead so those fields stay
+ * optional; use `MapConfig` for values you already know are parsed.
+ */
+export type MapConfigInput = z.input<typeof MapConfigSchema>;
 
 /** Callback for fetching distinct property values from an OGC API collection. */
 export type FetchDistinctValuesFn = (
