@@ -42,9 +42,9 @@ MapConfig.layers[].search.fields
 Add a `search` config to each layer in your `MapConfig`:
 
 ```ts
-import type { MapConfig } from '@ogc-maps/storybook-components/types';
+import type { MapConfigInput } from '@ogc-maps/storybook-components/types';
 
-const mapConfig: MapConfig = {
+const mapConfig: MapConfigInput = {
   // ... sources, basemaps, initialView ...
   layers: [
     {
@@ -54,7 +54,7 @@ const mapConfig: MapConfig = {
       label: 'Countries',
       visible: true,
       dataMode: 'vector-tiles',
-      style: { type: 'fill', paint: { 'fill-color': '#4a90d9', 'fill-opacity': 0.6 } },
+      styles: [{ type: 'fill', paint: { 'fill-color': '#4a90d9', 'fill-opacity': 0.6 } }],
       search: {
         fields: [
           // Text with autocomplete

@@ -33,9 +33,9 @@ The library uses TailwindCSS v4 with a `mapui:` prefix — all styles are scoped
 Create a config object that satisfies `MapConfig`. At minimum you need one source, one basemap, and an `initialView`:
 
 ```ts
-import type { MapConfig } from '@ogc-maps/storybook-components/types';
+import type { MapConfigInput } from '@ogc-maps/storybook-components/types';
 
-export const mapConfig: MapConfig = {
+export const mapConfig: MapConfigInput = {
   sources: [
     {
       id: 'my-api',
@@ -51,10 +51,12 @@ export const mapConfig: MapConfig = {
       label: 'Countries',
       visible: true,
       dataMode: 'vector-tiles',
-      style: {
-        type: 'fill',
-        paint: { 'fill-color': '#4a90d9', 'fill-opacity': 0.6 },
-      },
+      styles: [
+        {
+          type: 'fill',
+          paint: { 'fill-color': '#4a90d9', 'fill-opacity': 0.6 },
+        },
+      ],
     },
   ],
   basemaps: [
@@ -71,6 +73,8 @@ export const mapConfig: MapConfig = {
   },
 };
 ```
+
+> `MapConfigInput` is the pre-validation shape — fields with schema defaults (like `ui` or `initialView.pitch`/`bearing`) are optional here. Run it through `validateMapConfig`/`safeValidateMapConfig` (below) to get a fully-defaulted `MapConfig`.
 
 ## Validate the Config
 

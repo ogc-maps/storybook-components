@@ -161,4 +161,42 @@ describe('expandDashByCategory', () => {
     // The filter still uses the original value, not the slug
     expect(result[0].filter).toEqual(['==', ['get', 'route'], 'US Hwy 50']);
   });
+
+  it('dedupes idSuffix when distinct case values slugify to the same string', () => {
+    const style: LineStyle = {
+      ...baseLineStyle,
+      dashByCategory: {
+        property: 'route',
+        cases: [
+          { value: 'US Hwy 50', dasharray: [1, 0] },
+          { value: 'US-Hwy-50', dasharray: [4, 2] },
+        ],
+      },
+    };
+    const result = expandDashByCategory(style);
+    const ids = result.map((r) => r.idSuffix);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(['dash--US_Hwy_50', 'dash--US_Hwy_50-2']);
+    // Filters still discriminate on the original, un-slugified values.
+    expect(result[0].filter).toEqual(['==', ['get', 'route'], 'US Hwy 50']);
+    expect(result[1].filter).toEqual(['==', ['get', 'route'], 'US-Hwy-50']);
+  });
+
+  it('dedupes idSuffix when a case value literally slugifies to "default"', () => {
+    const style: LineStyle = {
+      ...baseLineStyle,
+      dashByCategory: {
+        property: 'class',
+        cases: [{ value: 'default', dasharray: [1, 0] }],
+        default: [4, 4],
+      },
+    };
+    const result = expandDashByCategory(style);
+    const ids = result.map((r) => r.idSuffix);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(['dash--default', 'dash--default-2']);
+    // The case layer (not the default layer) keeps the un-suffixed id.
+    expect(result[0].value).toBe('default');
+    expect(result[1].value).toBeNull();
+  });
 });
