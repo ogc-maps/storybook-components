@@ -1,7 +1,7 @@
 /**
  * Format allowlist + detection. Two layers of defense:
- *  - `formatFromExtension` â fast classification from the filename.
- *  - `sniffMagicBytes` â authoritative check on the file's leading bytes, so a
+ *  - `formatFromExtension` - fast classification from the filename.
+ *  - `sniffMagicBytes` - authoritative check on the file's leading bytes, so a
  *    `.geojson` that is actually a zip (or vice-versa) is rejected.
  */
 import type { FormatId } from './types.js';
