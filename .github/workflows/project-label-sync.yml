@@ -36,16 +36,17 @@ jobs:
             const statusToLabel = {
               'Clarify': 'status:clarify',
               'Ready': 'status:ready',
-              'In progress': 'status:in-progress',
-              'In review': 'status:in-review',
+              'In Progress': 'status:in-progress',
+              'In Review': 'status:in-review',
             };
             const allStatusLabels = Object.values(statusToLabel);
 
             // Fetch project items with their Status field and linked content
-            const query = `query($org: String!, $number: Int!) {
+            const query = `query($org: String!, $number: Int!, $after: String) {
               organization(login: $org) {
                 projectV2(number: $number) {
-                  items(first: 100) {
+                  items(first: 100, after: $after) {
+                    pageInfo { hasNextPage endCursor }
                     nodes {
                       fieldValueByName(name: "Status") {
                         ... on ProjectV2ItemFieldSingleSelectValue { name }
@@ -72,21 +73,29 @@ jobs:
               }
             }`;
 
-            const result = await github.graphql(query, {
-              org: process.env.ORG,
-              number: parseInt(process.env.PROJECT_NUMBER),
-            });
+            const items = [];
+            let after = null;
+            let hasNextPage = true;
+            while (hasNextPage) {
+              const result = await github.graphql(query, {
+                org: process.env.ORG,
+                number: parseInt(process.env.PROJECT_NUMBER),
+                after,
+              });
 
-            const project = result?.organization?.projectV2;
-            if (!project) {
-              core.setFailed(
-                `projectV2(number: ${process.env.PROJECT_NUMBER}) returned null for org ${process.env.ORG}. ` +
-                `Check that PROJECT_TOKEN has 'read:project' scope and the project exists.`
-              );
-              return;
+              const project = result?.organization?.projectV2;
+              if (!project) {
+                core.setFailed(
+                  `projectV2(number: ${process.env.PROJECT_NUMBER}) returned null for org ${process.env.ORG}. ` +
+                  `Check that PROJECT_TOKEN has 'read:project' scope and the project exists.`
+                );
+                return;
+              }
+
+              items.push(...project.items.nodes);
+              hasNextPage = project.items.pageInfo.hasNextPage;
+              after = project.items.pageInfo.endCursor;
             }
-
-            const items = project.items.nodes;
 
             for (const item of items) {
               const content = item.content;

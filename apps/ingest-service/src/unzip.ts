@@ -66,7 +66,7 @@ export function extractShapefileZip(
       let totalBytes = 0;
       let entryCount = 0;
       const shpFiles: string[] = [];
-      let hasPrj = false;
+      const prjStems: string[] = [];
       let settled = false;
 
       const fail = (e: Error) => {
@@ -86,6 +86,12 @@ export function extractShapefileZip(
         } else if (shpFiles.length > 1) {
           reject(new Error(`Zip contains multiple shapefiles (${shpFiles.length}); upload one at a time`));
         } else {
+          // GDAL only picks up a .prj that shares the .shp's basename in the
+          // same directory (all sidecars are flattened into destDir above).
+          // A .prj present elsewhere in the zip under an unrelated name would
+          // never actually be found by GDAL, so only count it if it matches.
+          const shpStem = path.basename(shpFiles[0], path.extname(shpFiles[0])).toLowerCase();
+          const hasPrj = prjStems.includes(shpStem);
           resolve({ shpPath: shpFiles[0], hasPrj });
         }
       });
@@ -133,7 +139,7 @@ export function extractShapefileZip(
 
         const outPath = path.join(destDir, path.basename(name));
         if (ext === '.shp') shpFiles.push(outPath);
-        if (ext === '.prj') hasPrj = true;
+        if (ext === '.prj') prjStems.push(path.basename(name, path.extname(name)).toLowerCase());
 
         zipfile.openReadStream(entry, (streamErr, readStream) => {
           if (streamErr || !readStream) {
